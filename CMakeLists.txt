@@ -252,6 +252,14 @@ set_target_properties(imebra PROPERTIES VERSION ${IMEBRA_VERSION}
                                           SOVERSION ${IMEBRA_MAJOR_VERSION})
 
 
+find_package(DCMTK)
+if (${DCMTK_FOUND})
+    message(STATUS "DCMTK found. Interoperability tests enabled")
+else (${DCMTK_FOUND})
+    add_definitions(-DDISABLE_DCMTK_INTEROPERABILITY_TEST)
+    message(WARNING "WARNING: DCMTK not found. Disabling interoperability tests")
+endif (${DCMTK_FOUND})
+
 if(NOT IOS)
 
     ##############################################
@@ -278,7 +286,7 @@ if(NOT IOS)
     # Download and install GoogleTest
     ExternalProject_Add(
         GTest
-        URL https://github.com/google/googletest/archive/release-1.10.0.zip
+        URL http://192.168.1.110/googletest-release-1.10.0.zip
         CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
         INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
@@ -308,7 +316,7 @@ if(NOT IOS)
             ${imebra_tests_objc_src}
     )
     add_dependencies(ImebraTests GTest)
-    target_include_directories(ImebraTests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include)
+    target_include_directories(ImebraTests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include   ${DCMTK_INCLUDE_DIRS})
 
     # GTest always adds "d" to debug build, no matter what's the platform
     if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
