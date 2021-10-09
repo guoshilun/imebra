@@ -308,32 +308,33 @@ void outputDatasetTags(const imebra::DataSet &dataset, const std::wstring &prefi
 ///
 //////////////////////////////////////////////////////////////////////////////////////
 void outputCommandTags(const std::string &title, const imebra::DimseCommand &command) {
-    if (!title.empty()) {
-        std::wcout << std::endl;
-        std::wcout << std::endl;
-        std::wcout << title.c_str() << std::endl;
-        std::wcout << std::wstring(title.size(), L'*') << std::endl;
-        std::wcout << std::endl;
-    }
-
-    try {
-        // Get the header dataset
-        imebra::DataSet header = command.getCommandDataSet();
-        std::wcout << std::endl;
-        std::wcout << L"    HEADER:" << std::endl;
-        std::wcout << L"    -------" << std::endl;
-        outputDatasetTags(header, L"    ");
-
-        // Get the payload dataset
-        imebra::DataSet payload = command.getPayloadDataSet();
-        std::wcout << std::endl;
-        std::wcout << L"    PAYLOAD:" << std::endl;
-        std::wcout << L"    --------" << std::endl;
-        outputDatasetTags(payload, L"    ");
-    }
-    catch (const imebra::MissingItemError &) {
-        // We arrive here if the payload we request above does not exist.
-    }
+    // 不显示命令
+//    if (!title.empty()) {
+//        std::wcout << std::endl;
+//        std::wcout << std::endl;
+//        std::wcout << title.c_str() << std::endl;
+//        std::wcout << std::wstring(title.size(), L'*') << std::endl;
+//        std::wcout << std::endl;
+//    }
+//
+//    try {
+//        // Get the header dataset
+//        imebra::DataSet header = command.getCommandDataSet();
+//        std::wcout << std::endl;
+//        std::wcout << L"    HEADER:" << std::endl;
+//        std::wcout << L"    -------" << std::endl;
+//        outputDatasetTags(header, L"    ");
+//
+//        // Get the payload dataset
+//        imebra::DataSet payload = command.getPayloadDataSet();
+//        std::wcout << std::endl;
+//        std::wcout << L"    PAYLOAD:" << std::endl;
+//        std::wcout << L"    --------" << std::endl;
+//        outputDatasetTags(payload, L"    ");
+//    }
+//    catch (const imebra::MissingItemError &) {
+//        // We arrive here if the payload we request above does not exist.
+//    }
 }
 
 
