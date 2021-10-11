@@ -24,7 +24,6 @@
 
 #include <sstream>
 #include  <unistd.h>
-#include <pthread.h>
 
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
