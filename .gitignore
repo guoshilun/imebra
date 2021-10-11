@@ -7,3 +7,7 @@ imebra_*.zip
 .DS_Store
 
 *.zip
+
+.idea/
+cmake-build-debug/
+cmake-build-release/
