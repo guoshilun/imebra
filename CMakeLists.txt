@@ -286,7 +286,8 @@ if(NOT IOS)
     # Download and install GoogleTest
     ExternalProject_Add(
         GTest
-        URL http://192.168.1.110/googletest-release-1.10.0.zip
+        GIT_REPOSITORY https://gitee.com/dhz1217/googletest
+        GIT_TAG  release-1.10.0
         CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
         INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
