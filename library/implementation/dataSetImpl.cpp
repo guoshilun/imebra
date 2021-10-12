@@ -801,7 +801,7 @@ std::shared_ptr<overlay> dataSet::getOverlay(std::uint32_t overlayNumber) const
                     roiStandardDeviationPresent,
                     getTag(groupId, 0, 0x3000)->getBuffer(0));
     }
-    catch(MissingDataElementError)
+    catch(const MissingDataElementError&)
     {
             IMEBRA_THROW(MissingGroupError, "None of the 60XX groups contain the overlay data");
     }

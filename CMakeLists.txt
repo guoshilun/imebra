@@ -17,6 +17,8 @@ if("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
 endif()
 
 set(imebra_libraries "")
+#SET(CMAKE_C_FLAGS_DEBUG "-g -Wall")
+SET(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wno-unused -Wno-unused-parameter -Wignored-qualifiers")
 
 # Select the proper charset conversion libraries according to the charset conversion method
 #------------------------------------------------------------------------------------------
@@ -211,7 +213,10 @@ else()
 
 endif()
 
+
+
 target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
+
 
 # Define dependency libraries
 #----------------------------
