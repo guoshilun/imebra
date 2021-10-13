@@ -554,7 +554,10 @@ void writingDataHandlerString::setString(const size_t index, const std::string& 
     }
     m_strings[index] = value;
 
-    validate();
+    if (!m_disableValidateSetOp){
+        validate();
+    }
+
 
     IMEBRA_FUNCTION_END();
 }

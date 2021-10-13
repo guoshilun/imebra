@@ -24,23 +24,18 @@ If you do not want to be bound by the GPL terms (such as the requirement
 #include "dateImpl.h"
 #include "ageImpl.h"
 
-namespace imebra
-{
+namespace imebra {
 
-namespace implementation
-{
+    namespace implementation {
 
-namespace handlers
-{
+        namespace handlers {
 
 
-readingDataHandler::readingDataHandler(tagVR_t dataType): m_dataType(dataType)
-{
-}
+            readingDataHandler::readingDataHandler(tagVR_t dataType) : m_dataType(dataType) {
+            }
 
-readingDataHandler::~readingDataHandler()
-{
-}
+            readingDataHandler::~readingDataHandler() {
+            }
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -51,10 +46,9 @@ readingDataHandler::~readingDataHandler()
 //
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
-tagVR_t readingDataHandler::getDataType() const
-{
-    return m_dataType;
-}
+            tagVR_t readingDataHandler::getDataType() const {
+                return m_dataType;
+            }
 
 
 ///////////////////////////////////////////////////////////
@@ -66,53 +60,54 @@ tagVR_t readingDataHandler::getDataType() const
 //
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
-std::shared_ptr<date> readingDataHandler::getDate(const size_t /* index */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::shared_ptr<date> readingDataHandler::getDate(const size_t /* index */) const {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()) << " to Date");
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType())
+                            << " to Date");
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-std::shared_ptr<age> readingDataHandler::getAge(const size_t /* index */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::shared_ptr<age> readingDataHandler::getAge(const size_t /* index */) const {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()) << " to Age");
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()) << " to Age");
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-std::shared_ptr<patientName> readingDataHandler::getPatientName(const size_t /* index */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::shared_ptr<patientName> readingDataHandler::getPatientName(const size_t /* index */) const {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()) << " to Patient Name");
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType())
+                            << " to Patient Name");
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-std::shared_ptr<unicodePatientName> readingDataHandler::getUnicodePatientName(const size_t /* index */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::shared_ptr<unicodePatientName>
+            readingDataHandler::getUnicodePatientName(const size_t /* index */) const {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()) << " to Patient Name");
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType())
+                            << " to Patient Name");
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
 
+            writingDataHandler::writingDataHandler(const std::shared_ptr<buffer> &pBuffer, tagVR_t dataType) :
+                    m_dataType(dataType), m_buffer(pBuffer),m_disableValidateSetOp(false) {
 
+            }
 
-writingDataHandler::writingDataHandler(const std::shared_ptr<buffer> &pBuffer, tagVR_t dataType):
-    m_dataType(dataType), m_buffer(pBuffer)
-{
-}
-
-writingDataHandler::~writingDataHandler()
-{
-}
+            writingDataHandler::~writingDataHandler() {
+            }
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -123,10 +118,9 @@ writingDataHandler::~writingDataHandler()
 //
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
-tagVR_t writingDataHandler::getDataType() const
-{
-    return m_dataType;
-}
+            tagVR_t writingDataHandler::getDataType() const {
+                return m_dataType;
+            }
 
 
 ///////////////////////////////////////////////////////////
@@ -138,44 +132,54 @@ tagVR_t writingDataHandler::getDataType() const
 //
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
-void writingDataHandler::setDate(const size_t /* index */, const std::shared_ptr<const date>& /* pDate */)
-{
-    IMEBRA_FUNCTION_START();
+            void
+            writingDataHandler::setDate(const size_t /* index */, const std::shared_ptr<const date> & /* pDate */) {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Date to VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Date to VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-void writingDataHandler::setAge(const size_t /* index */, const std::shared_ptr<const age>& /* pAge */)
-{
-    IMEBRA_FUNCTION_START();
+            void writingDataHandler::setAge(const size_t /* index */, const std::shared_ptr<const age> & /* pAge */) {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Age to VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Age to VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-void writingDataHandler::setPatientName(const size_t /* index */, const std::shared_ptr<const patientName>& /* pPatientName */)
-{
-    IMEBRA_FUNCTION_START();
+            void writingDataHandler::setPatientName(const size_t /* index */,
+                                                    const std::shared_ptr<const patientName> & /* pPatientName */) {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Patient Name to VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Patient Name to VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-void writingDataHandler::setUnicodePatientName(const size_t /* index */, const std::shared_ptr<const unicodePatientName>& /* pPatientName */)
-{
-    IMEBRA_FUNCTION_START();
+            void writingDataHandler::setUnicodePatientName(const size_t /* index */,
+                                                           const std::shared_ptr<const unicodePatientName> & /* pPatientName */) {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Patient Name to VR "<< dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
+                    IMEBRA_THROW(DataHandlerConversionError, "Cannot convert Patient Name to VR "
+                            << dicomDictionary::getDicomDictionary()->enumDataTypeToString(getDataType()));
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
-} // namespace handlers
+            void writingDataHandler::disableValidateSetOperation() {
+                IMEBRA_FUNCTION_START() ;
 
-} // namespace implementation
+                    m_disableValidateSetOp = true;
+
+                IMEBRA_FUNCTION_END();
+            }
+        } // namespace handlers
+
+    } // namespace implementation
 
 } // namespace imebra

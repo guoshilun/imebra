@@ -65,10 +65,16 @@ void CopyGroups(const DataSet& source, MutableDataSet& destination)
                     {
                         ReadingDataHandler sourceHandler = sourceTag.getReadingDataHandler(buffer);
                         WritingDataHandler destHandler = destTag.getWritingDataHandler(buffer);
+                        destHandler.disableValidateSetOperation();
                         destHandler.setSize(sourceHandler.getSize());
+
+
                         for(size_t item(0); item != sourceHandler.getSize(); ++item)
                         {
-                            destHandler.setUnicodeString(item, sourceHandler.getUnicodeString(item));
+
+                                destHandler.setUnicodeString(item, sourceHandler.getUnicodeString(item));
+
+
                         }
                     }
                 }
@@ -152,6 +158,8 @@ int main(int argc, char* argv[])
             for(size_t scanImages(0);; ++scanImages)
             {
                 Image copyImage = loadedDataSet.getImage(scanImages);
+
+
                 if(copyImage.getHighBit() > maxHighBit)
                 {
                     std::cout << "WARNING: image has highBit=" << copyImage.getHighBit() <<
@@ -165,6 +173,7 @@ int main(int argc, char* argv[])
         {
             // Ignore this
         }
+
 
         CopyGroups(loadedDataSet, newDataSet);
 

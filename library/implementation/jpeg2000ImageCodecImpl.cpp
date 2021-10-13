@@ -34,20 +34,20 @@ If you do not want to be bound by the GPL terms (such as the requirement
 #include <string.h>
 #include <iostream>
 #include <cstdio>
+#include <cassert>
+#include <endian.h>
+#include <byteswap.h>
 
 extern "C"
 {
 #include <openjpeg.h>
 }
 
-namespace imebra
-{
+namespace imebra {
 
-namespace implementation
-{
+    namespace implementation {
 
-namespace codecs
-{
+        namespace codecs {
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -65,137 +65,952 @@ namespace codecs
 
 
 #ifdef JPEG2000_V2
+#ifdef GDCM_WORDS_BIGENDIAN
+            class SwapperDoOp
+{
+public:
+  template <typename T> static T Swap(T val) {return val;}
+  template <typename T> static void SwapArray(T *, unsigned int ) {}
+};
+
+class SwapperNoOp
+{
+public:
+  template <typename T> static T Swap(T val);
+  template <typename T>
+  static void SwapArray(T *array, unsigned int n)
+  {
+    // TODO: need to unroll loop:
+    for(unsigned int i = 0; i < n; ++i)
+    {
+      array[i] = Swap<T>(array[i]);
+    }
+  }
+};
+#else
+
+            class SwapperNoOp {
+            public:
+                template<typename T>
+                static T Swap(T val) { return val; }
+
+                template<typename T>
+                static void SwapArray(T *, size_t) {}
+            };
+
+            class SwapperDoOp {
+            public:
+                template<typename T>
+                static T Swap(T val);
+
+                template<typename T>
+                static void SwapArray(T *array, size_t n) {
+                    // TODO: need to unroll loop:
+                    for (size_t i = 0; i < n; ++i) {
+                        array[i] = Swap<T>(array[i]);
+                    }
+                }
+            };
+
+#endif
+
+#ifdef GDCM_WORDS_BIGENDIAN
+            template <> inline uint16_t SwapperNoOp::Swap<uint16_t>(uint16_t val)
+    {
+    return bswap_16(val);
+    }
+  template <> inline int16_t SwapperNoOp::Swap<int16_t>(int16_t val)
+    {
+    return Swap((uint16_t)val);
+    }
+
+  template <> inline uint32_t SwapperNoOp::Swap<uint32_t>(uint32_t val)
+    {
+    return bswap_32(val);
+    }
+  template <> inline int32_t SwapperNoOp::Swap<int32_t>(int32_t val)
+    {
+    return Swap((uint32_t)val);
+    }
+  template <> inline float SwapperNoOp::Swap<float>(float val)
+    {
+    return Swap((uint32_t)val);
+    }
+  template <> inline uint64_t SwapperNoOp::Swap<uint64_t>(uint64_t val)
+    {
+    return bswap_64(val);
+    }
+  template <> inline int64_t SwapperNoOp::Swap<int64_t>(int64_t val)
+    {
+    return Swap((uint64_t)val);
+    }
+  template <> inline double SwapperNoOp::Swap<double>(double val)
+    {
+    return Swap((uint64_t)val);
+    }
+
+  template <> inline Tag SwapperNoOp::Swap<Tag>(Tag val)
+    {
+    return Tag( Swap(val.GetGroup()), Swap(val.GetElement()) );
+    }
+
+  template <> inline void SwapperNoOp::SwapArray(uint8_t *, unsigned int ) {}
+
+  template <> inline void SwapperNoOp::SwapArray(float *array, unsigned int n)
+    {
+    switch( sizeof(float) )
+      {
+      case 4:
+        SwapperNoOp::SwapArray<uint32_t>((uint32_t*)array,n);
+        break;
+      default:
+        assert(0);
+      }
+    }
+
+  template <> inline void SwapperNoOp::SwapArray(double *array, unsigned int n)
+    {
+    switch( sizeof(double) )
+      {
+      case 8:
+        SwapperNoOp::SwapArray<uint64_t>((uint64_t*)array,n);
+        break;
+      default:
+        assert(0);
+      }
+    }
+
+#else
+
+            template<>
+            inline uint16_t SwapperDoOp::Swap<uint16_t>(uint16_t val) {
+                return bswap_16(val);
+            }
+
+            template<>
+            inline int16_t SwapperDoOp::Swap<int16_t>(int16_t val) {
+                return Swap((uint16_t) val);
+            }
+
+            template<>
+            inline uint32_t SwapperDoOp::Swap<uint32_t>(uint32_t val) {
+                return bswap_32(val);
+            }
+
+            template<>
+            inline int32_t SwapperDoOp::Swap<int32_t>(int32_t val) {
+                return Swap((uint32_t) val);
+            }
+
+            template<>
+            inline float SwapperDoOp::Swap<float>(float val) {
+                return static_cast<float>(Swap((uint32_t) val));
+            }
+
+            template<>
+            inline uint64_t SwapperDoOp::Swap<uint64_t>(uint64_t val) {
+                return bswap_64(val);
+            }
+
+            template<>
+            inline int64_t SwapperDoOp::Swap<int64_t>(int64_t val) {
+                return Swap((uint64_t) val);
+            }
+
+            template<>
+            inline double SwapperDoOp::Swap<double>(double val) {
+                return static_cast<double>(Swap((uint64_t) val));
+            }
+
+//            template <> inline Tag SwapperDoOp::Swap<Tag>(Tag val)
+//            {
+//                return Tag( Swap((uint32_t)val.GetElementTag()) );
+//            }
+
+            template<>
+            inline void SwapperDoOp::SwapArray(uint8_t *, size_t) {}
+
+            template<>
+            inline void SwapperDoOp::SwapArray(float *array, size_t n) {
+                switch (sizeof(float)) {
+                    case 4:
+                        SwapperDoOp::SwapArray<uint32_t>((uint32_t *) array, n);
+                        break;
+                    default:
+                        assert(0);
+                }
+            }
+
+            template<>
+            inline void SwapperDoOp::SwapArray(double *array, size_t n) {
+                switch (sizeof(double)) {
+                    case 8:
+                        SwapperDoOp::SwapArray<uint64_t>((uint64_t *) array, n);
+                        break;
+                    default:
+                        assert(0);
+                }
+            }
+
+
+#endif
 
 // Represents a Jpeg2000 memory stream information
-typedef struct
-{
-    OPJ_UINT8* pData; //Our data.
-    OPJ_SIZE_T dataSize; //How big is our data.
-    OPJ_SIZE_T offset; //Where are we currently in our data.
-} opj_memory_stream;
+            typedef struct {
+                OPJ_UINT8 *pData; //Our data.
+                OPJ_SIZE_T dataSize; //How big is our data.
+                OPJ_SIZE_T offset; //Where are we currently in our data.
+            } opj_memory_stream;
 
 
 // Read from memory stream
-static OPJ_SIZE_T opj_memory_stream_read(void * p_buffer, OPJ_SIZE_T p_nb_bytes, void * p_user_data)
-{
-    opj_memory_stream* l_memory_stream = (opj_memory_stream*)p_user_data;//Our data.
-    OPJ_SIZE_T l_nb_bytes_read = p_nb_bytes;//Amount to move to buffer.
+            static OPJ_SIZE_T opj_memory_stream_read(void *p_buffer, OPJ_SIZE_T p_nb_bytes, void *p_user_data) {
+                opj_memory_stream *l_memory_stream = (opj_memory_stream *) p_user_data;//Our data.
+                OPJ_SIZE_T l_nb_bytes_read = p_nb_bytes;//Amount to move to buffer.
 
-    //Check if the current offset is outside our data buffer.
-    if (l_memory_stream->offset >= l_memory_stream->dataSize) return (OPJ_SIZE_T)-1;
+                //Check if the current offset is outside our data buffer.
+                if (l_memory_stream->offset >= l_memory_stream->dataSize) return (OPJ_SIZE_T) -1;
 
-    //Check if we are reading more than we have.
-    if (p_nb_bytes > (l_memory_stream->dataSize - l_memory_stream->offset))
-    {
-        l_nb_bytes_read = l_memory_stream->dataSize - l_memory_stream->offset;//Read all we have.
-    }
+                //Check if we are reading more than we have.
+                if (p_nb_bytes > (l_memory_stream->dataSize - l_memory_stream->offset)) {
+                    l_nb_bytes_read = l_memory_stream->dataSize - l_memory_stream->offset;//Read all we have.
+                }
 
-    //Copy the data to the internal buffer.
-    memcpy(p_buffer, &(l_memory_stream->pData[l_memory_stream->offset]), l_nb_bytes_read);
-    l_memory_stream->offset += l_nb_bytes_read;//Update the pointer to the new location.
-    return l_nb_bytes_read;
-}
+                //Copy the data to the internal buffer.
+                memcpy(p_buffer, &(l_memory_stream->pData[l_memory_stream->offset]), l_nb_bytes_read);
+                l_memory_stream->offset += l_nb_bytes_read;//Update the pointer to the new location.
+                return l_nb_bytes_read;
+            }
 
 //This will write from the buffer to our memory.
-static OPJ_SIZE_T opj_memory_stream_write(void * p_buffer, OPJ_SIZE_T p_nb_bytes, void * p_user_data)
-{
-    opj_memory_stream* l_memory_stream = (opj_memory_stream*)p_user_data;//Our data.
-    OPJ_SIZE_T l_nb_bytes_write = p_nb_bytes;//Amount to move to buffer.
+            static OPJ_SIZE_T opj_memory_stream_write(void *p_buffer, OPJ_SIZE_T p_nb_bytes, void *p_user_data) {
+                opj_memory_stream *l_memory_stream = (opj_memory_stream *) p_user_data;//Our data.
+                OPJ_SIZE_T l_nb_bytes_write = p_nb_bytes;//Amount to move to buffer.
 
-    //Check if the current offset is outside our data buffer.
-    if (l_memory_stream->offset >= l_memory_stream->dataSize) return (OPJ_SIZE_T)-1;
+                //Check if the current offset is outside our data buffer.
+                if (l_memory_stream->offset >= l_memory_stream->dataSize) return (OPJ_SIZE_T) -1;
 
-    //Check if we are write more than we have space for.
-    if (p_nb_bytes > (l_memory_stream->dataSize - l_memory_stream->offset))
-    {
-        l_nb_bytes_write = l_memory_stream->dataSize - l_memory_stream->offset;//Write the remaining space.
-    }
+                //Check if we are write more than we have space for.
+                if (p_nb_bytes > (l_memory_stream->dataSize - l_memory_stream->offset)) {
+                    l_nb_bytes_write = l_memory_stream->dataSize - l_memory_stream->offset;//Write the remaining space.
+                }
 
-    //Copy the data from the internal buffer.
-    memcpy(&(l_memory_stream->pData[l_memory_stream->offset]), p_buffer, l_nb_bytes_write);
-    l_memory_stream->offset += l_nb_bytes_write;//Update the pointer to the new location.
-    return l_nb_bytes_write;
-}
+                //Copy the data from the internal buffer.
+                memcpy(&(l_memory_stream->pData[l_memory_stream->offset]), p_buffer, l_nb_bytes_write);
+                l_memory_stream->offset += l_nb_bytes_write;//Update the pointer to the new location.
+                return l_nb_bytes_write;
+            }
 
 //Moves the pointer forward, but never more than we have.
-static OPJ_OFF_T opj_memory_stream_skip(OPJ_OFF_T p_nb_bytes, void * p_user_data)
-{
-    opj_memory_stream* l_memory_stream = (opj_memory_stream*)p_user_data;
-    OPJ_SIZE_T l_nb_bytes;
+            static OPJ_OFF_T opj_memory_stream_skip(OPJ_OFF_T p_nb_bytes, void *p_user_data) {
+                opj_memory_stream *l_memory_stream = (opj_memory_stream *) p_user_data;
+                OPJ_SIZE_T l_nb_bytes;
 
-    if (p_nb_bytes < 0) return -1;//No skipping backwards.
-    {
-        l_nb_bytes = (OPJ_SIZE_T)p_nb_bytes;//Allowed because it is positive.
-    }
+                if (p_nb_bytes < 0) return -1;//No skipping backwards.
+                {
+                    l_nb_bytes = (OPJ_SIZE_T) p_nb_bytes;//Allowed because it is positive.
+                }
 
-    // Do not allow jumping past the end.
-    if (l_nb_bytes >l_memory_stream->dataSize - l_memory_stream->offset)
-    {
-        l_nb_bytes = l_memory_stream->dataSize - l_memory_stream->offset;//Jump the max.
-    }
+                // Do not allow jumping past the end.
+                if (l_nb_bytes > l_memory_stream->dataSize - l_memory_stream->offset) {
+                    l_nb_bytes = l_memory_stream->dataSize - l_memory_stream->offset;//Jump the max.
+                }
 
-    //Make the jump.
-    l_memory_stream->offset += l_nb_bytes;
+                //Make the jump.
+                l_memory_stream->offset += l_nb_bytes;
 
-    //Returm how far we jumped.
-    return l_nb_bytes;
-}
+                //Returm how far we jumped.
+                return l_nb_bytes;
+            }
 
 //Sets the pointer to anywhere in the memory.
-static OPJ_BOOL opj_memory_stream_seek(OPJ_OFF_T p_nb_bytes, void * p_user_data)
-{
-    opj_memory_stream* l_memory_stream = (opj_memory_stream*)p_user_data;
+            static OPJ_BOOL opj_memory_stream_seek(OPJ_OFF_T p_nb_bytes, void *p_user_data) {
+                opj_memory_stream *l_memory_stream = (opj_memory_stream *) p_user_data;
 
-    if (p_nb_bytes < 0)
-    {
-        return OPJ_FALSE;
-    }
+                if (p_nb_bytes < 0) {
+                    return OPJ_FALSE;
+                }
 
-    if (p_nb_bytes >(OPJ_OFF_T)l_memory_stream->dataSize)
-    {
-        return OPJ_FALSE;
-    }
+                if (p_nb_bytes > (OPJ_OFF_T) l_memory_stream->dataSize) {
+                    return OPJ_FALSE;
+                }
 
-    l_memory_stream->offset = (OPJ_SIZE_T)p_nb_bytes;//Move to new position.
-    return OPJ_TRUE;
-}
+                l_memory_stream->offset = (OPJ_SIZE_T) p_nb_bytes;//Move to new position.
+                return OPJ_TRUE;
+            }
 
 //The system needs a routine to do when finished, the name tells you what I want it to do.
-static void opj_memory_stream_do_nothing(void * /* p_user_data */)
-{
-}
+            static void opj_memory_stream_do_nothing(void * /* p_user_data */) {
+            }
 
 //Create a stream to use memory as the input or output.
-opj_stream_t* opj_stream_create_default_memory_stream(opj_memory_stream* p_memoryStream, OPJ_BOOL p_is_read_stream)
-{
-    opj_stream_t* l_stream;
+            opj_stream_t *
+            opj_stream_create_default_memory_stream(opj_memory_stream *p_memoryStream, OPJ_BOOL p_is_read_stream) {
+                opj_stream_t *l_stream;
 
-    if (!(l_stream = opj_stream_default_create(p_is_read_stream)))
-    {
-        return (NULL);
-    }
+                if (!(l_stream = opj_stream_default_create(p_is_read_stream))) {
+                    return (NULL);
+                }
 
-    //Set how to work with the frame buffer.
-    if(p_is_read_stream)
-    {
-        opj_stream_set_read_function(l_stream, opj_memory_stream_read);
-    }
-    else
-    {
-        opj_stream_set_write_function(l_stream, opj_memory_stream_write);
-    }
+                //Set how to work with the frame buffer.
+                if (p_is_read_stream) {
+                    opj_stream_set_read_function(l_stream, opj_memory_stream_read);
+                } else {
+                    opj_stream_set_write_function(l_stream, opj_memory_stream_write);
+                }
 
-    opj_stream_set_seek_function(l_stream, opj_memory_stream_seek);
-    opj_stream_set_skip_function(l_stream, opj_memory_stream_skip);
-    opj_stream_set_user_data(l_stream, p_memoryStream, opj_memory_stream_do_nothing);
-    opj_stream_set_user_data_length(l_stream, p_memoryStream->dataSize);
-    return l_stream;
-}
+                opj_stream_set_seek_function(l_stream, opj_memory_stream_seek);
+                opj_stream_set_skip_function(l_stream, opj_memory_stream_skip);
+                opj_stream_set_user_data(l_stream, p_memoryStream, opj_memory_stream_do_nothing);
+                opj_stream_set_user_data_length(l_stream, p_memoryStream->dataSize);
+                return l_stream;
+            }
+
+            /////////////////////////////////////////////////////
+            ///////  COPY From GDCM-JPEG2000
+            /////////////////////////////////////////////////////////
+
+
+
+            typedef enum {
+                FF30 = 0xFF30,
+                FF31 = 0xFF31,
+                FF32 = 0xFF32,
+                FF33 = 0xFF33,
+                FF34 = 0xFF34,
+                FF35 = 0xFF35,
+                FF36 = 0xFF36,
+                FF37 = 0xFF37,
+                FF38 = 0xFF38,
+                FF39 = 0xFF39,
+                FF3A = 0xFF3A,
+                FF3B = 0xFF3B,
+                FF3C = 0xFF3C,
+                FF3D = 0xFF3D,
+                FF3E = 0xFF3E,
+                FF3F = 0xFF3F,
+                SOC = 0xFF4F,
+                CAP = 0xFF50,
+                SIZ = 0xFF51,
+                COD = 0xFF52,
+                COC = 0xFF53,
+                TLM = 0xFF55,
+                PLM = 0XFF57,
+                PLT = 0XFF58,
+                QCD = 0xFF5C,
+                QCC = 0xFF5D,
+                RGN = 0xFF5E,
+                POC = 0xFF5F,
+                PPM = 0XFF60,
+                PPT = 0XFF61,
+                CRG = 0xFF63,
+                COM = 0xFF64,
+                SOT = 0xFF90,
+                SOP = 0xFF91,
+                EPH = 0XFF92,
+                SOD = 0xFF93,
+                EOC = 0XFFD9  /* EOI in old jpeg */
+            } MarkerType;
+
+            typedef enum {
+                JP = 0x6a502020,
+                FTYP = 0x66747970,
+                JP2H = 0x6a703268,
+                JP2C = 0x6a703263,
+                JP2 = 0x6a703220,
+                IHDR = 0x69686472,
+                COLR = 0x636f6c72,
+                XML = 0x786d6c20,
+                CDEF = 0x63646566,
+                CMAP = 0x636D6170,
+                PCLR = 0x70636c72,
+                RES = 0x72657320
+            } OtherType;
+
+            static inline bool hasnolength(uint_fast16_t marker) {
+                switch (marker) {
+                    case FF30:
+                    case FF31:
+                    case FF32:
+                    case FF33:
+                    case FF34:
+                    case FF35:
+                    case FF36:
+                    case FF37:
+                    case FF38:
+                    case FF39:
+                    case FF3A:
+                    case FF3B:
+                    case FF3C:
+                    case FF3D:
+                    case FF3E:
+                    case FF3F:
+                    case SOC:
+                    case SOD:
+                    case EOC:
+                    case EPH:
+                        return true;
+                }
+                return false;
+            }
+
+
+            static inline bool read16(const char **input, size_t *len, uint16_t *ret) {
+                if (*len >= 2) {
+                    union {
+                        uint16_t v;
+                        char bytes[2];
+                    } u;
+                    memcpy(u.bytes, *input, 2);
+                    *ret = SwapperDoOp::Swap(u.v);
+                    *input += 2;
+                    *len -= 2;
+                    return true;
+                }
+                return false;
+            }
+
+
+            static inline bool read32(const char **input, size_t *len, uint32_t *ret) {
+                if (*len >= 4) {
+                    union {
+                        uint32_t v;
+                        char bytes[4];
+                    } u;
+                    memcpy(u.bytes, *input, 4);
+                    *ret = SwapperDoOp::Swap(u.v);
+                    *input += 4;
+                    *len -= 4;
+                    return true;
+                }
+                return false;
+            }
+
+            static inline bool read64(const char **input, size_t *len, uint64_t *ret) {
+                if (*len >= 8) {
+                    union {
+                        uint64_t v;
+                        char bytes[8];
+                    } u;
+                    memcpy(u.bytes, *input, 8);
+                    *ret = SwapperDoOp::Swap(u.v);
+                    *input += 8;
+                    *len -= 8;
+                    return true;
+                }
+                return false;
+            }
+
+
+            static bool parsej2k_imp(const char *const stream, const size_t file_size, bool *lossless, bool *mct) {
+                uint16_t marker;
+                size_t lenmarker;
+                const char *cur = stream;
+                size_t cur_size = file_size;
+                *lossless = false; // default init
+                while (read16(&cur, &cur_size, &marker)) {
+                    if (!hasnolength(marker)) {
+                        uint16_t l;
+                        bool r = read16(&cur, &cur_size, &l);
+                        if (!r || l < 2)
+                            break;
+                        lenmarker = (size_t) l - 2;
+
+                        if (marker == COD) {
+                            const uint8_t MCTransformation = *(cur + 4);
+                            if (MCTransformation == 0x0) *mct = false;
+                            else if (MCTransformation == 0x1) *mct = true;
+                            else return false;
+                            const uint8_t Transformation = *(cur + 9);
+                            if (Transformation == 0x0) {
+                                *lossless = false;
+                                return true;
+                            }
+                            else if (Transformation == 0x1) *lossless = true;
+                            else return false;
+                        }
+                        cur += lenmarker;
+                        cur_size -= lenmarker;
+                    } else if (marker == SOD)
+                        return true;
+                }
+                return false;
+            }
+
+            static bool parsejp2_imp(const char *const stream, const size_t file_size, bool *lossless, bool *mct) {
+                uint32_t marker;
+                uint64_t len64; /* ref */
+                uint32_t len32; /* local 32bits op */
+                const char *cur = stream;
+                size_t cur_size = file_size;
+
+                while (read32(&cur, &cur_size, &len32)) {
+                    bool b0 = read32(&cur, &cur_size, &marker);
+                    if (!b0) break;
+                    len64 = len32;
+                    if (len32 == 1) /* 64bits ? */
+                    {
+                        bool b = read64(&cur, &cur_size, &len64);
+                        assert(b);
+                        (void) b;
+                        len64 -= 8;
+                    }
+                    if (marker == JP2C) {
+                        const size_t start = cur - stream;
+                        if (!len64) {
+                            len64 = (size_t) (file_size - start + 8);
+                        }
+                        assert(len64 >= 8);
+                        return parsej2k_imp(cur, (size_t) (len64 - 8), lossless, mct);
+                    }
+                    const size_t lenmarker = (size_t) (len64 - 8);
+                    cur += lenmarker;
+                }
+
+                return false;
+            }
+
+
+#define gdcmErrorMacro(msg) {}
+
+#define gdcmWarningMacro(msg) {}
+
+#define gdcmDebugMacro(msg) {}
+
+/**
+sample error callback expecting a FILE* client object
+*/
+            __attribute__((unused)) void error_callback(const char *msg, void *) {
+                (void) msg;
+                gdcmErrorMacro("Error in gdcmopenjpeg" << msg);
+            }
+
+/**
+sample warning callback expecting a FILE* client object
+*/
+            __attribute__((unused)) void warning_callback(const char *msg, void *) {
+                (void) msg;
+                gdcmWarningMacro("Warning in gdcmopenjpeg" << msg);
+            }
+
+/**
+sample debug callback expecting no client object
+*/
+            void info_callback(const char *msg, void *) {
+                (void) msg;
+                gdcmDebugMacro("Info in gdcmopenjpeg" << msg);
+            }
+
+#define J2K_CFMT 0
+#define JP2_CFMT 1
+#define JPT_CFMT 2
+
+#define PXM_DFMT 10
+#define PGX_DFMT 11
+#define BMP_DFMT 12
+#define YUV_DFMT 13
+#define TIF_DFMT 14
+#define RAW_DFMT 15
+#define TGA_DFMT 16
+#define PNG_DFMT 17
+#define CODEC_JP2 OPJ_CODEC_JP2
+#define CODEC_J2K OPJ_CODEC_J2K
+#define CLRSPC_GRAY OPJ_CLRSPC_GRAY
+#define CLRSPC_SRGB OPJ_CLRSPC_SRGB
+
+            struct myfile {
+                char *mem;
+                char *cur;
+                size_t len;
+            };
+
+            void gdcm_error_callback(const char *msg, void *) {
+                fprintf(stderr, "%s", msg);
+            }
+
+
+            OPJ_SIZE_T opj_read_from_memory(void *p_buffer, OPJ_SIZE_T p_nb_bytes, myfile *p_file) {
+                //OPJ_UINT32 l_nb_read = fread(p_buffer,1,p_nb_bytes,p_file);
+                OPJ_SIZE_T l_nb_read;
+                if (p_file->cur + p_nb_bytes <= p_file->mem + p_file->len) {
+                    l_nb_read = 1 * p_nb_bytes;
+                } else {
+                    l_nb_read = (OPJ_SIZE_T) (p_file->mem + p_file->len - p_file->cur);
+                    assert(l_nb_read < p_nb_bytes);
+                }
+                memcpy(p_buffer, p_file->cur, l_nb_read);
+                p_file->cur += l_nb_read;
+                assert(p_file->cur <= p_file->mem + p_file->len);
+                //std::cout << "l_nb_read: " << l_nb_read << std::endl;
+                return l_nb_read ? l_nb_read : ((OPJ_SIZE_T) -1);
+            }
+
+            OPJ_SIZE_T opj_write_from_memory(void *p_buffer, OPJ_SIZE_T p_nb_bytes, myfile *p_file) {
+                //return fwrite(p_buffer,1,p_nb_bytes,p_file);
+                OPJ_SIZE_T l_nb_write;
+                //if( p_file->cur + p_nb_bytes < p_file->mem + p_file->len )
+                //  {
+                l_nb_write = 1 * p_nb_bytes;
+                //  }
+                //else
+                //  {
+                //  l_nb_write = p_file->mem + p_file->len - p_file->cur;
+                //  assert( l_nb_write < p_nb_bytes );
+                //  }
+                memcpy(p_file->cur, p_buffer, l_nb_write);
+                p_file->cur += l_nb_write;
+                p_file->len += l_nb_write;
+                //assert( p_file->cur < p_file->mem + p_file->len );
+                return l_nb_write;
+                //return p_nb_bytes;
+            }
+
+            OPJ_OFF_T opj_skip_from_memory(OPJ_OFF_T p_nb_bytes, myfile *p_file) {
+                //if (fseek(p_user_data,p_nb_bytes,SEEK_CUR))
+                //  {
+                //  return -1;
+                //  }
+                if (p_file->cur + p_nb_bytes <= p_file->mem + p_file->len) {
+                    p_file->cur += p_nb_bytes;
+                    return p_nb_bytes;
+                }
+
+                p_file->cur = p_file->mem + p_file->len;
+                return -1;
+            }
+
+            OPJ_BOOL opj_seek_from_memory(OPJ_OFF_T p_nb_bytes, myfile *p_file) {
+                //if (fseek(p_user_data,p_nb_bytes,SEEK_SET))
+                //  {
+                //  return false;
+                //  }
+                //return true;
+                assert(p_nb_bytes >= 0);
+                if ((size_t) p_nb_bytes <= p_file->len) {
+                    p_file->cur = p_file->mem + p_nb_bytes;
+                    return OPJ_TRUE;
+                }
+
+                p_file->cur = p_file->mem + p_file->len;
+                return OPJ_FALSE;
+            }
+
+            opj_stream_t *
+            OPJ_CALLCONV opj_stream_create_memory_stream(myfile *p_mem, OPJ_SIZE_T p_size, bool p_is_read_stream) {
+                opj_stream_t *l_stream = nullptr;
+                if
+                        (!p_mem) {
+                    return nullptr;
+                }
+                l_stream = opj_stream_create(p_size, p_is_read_stream);
+                if
+                        (!l_stream) {
+                    return nullptr;
+                }
+                opj_stream_set_user_data(l_stream, p_mem, nullptr);
+                opj_stream_set_read_function(l_stream, (opj_stream_read_fn) opj_read_from_memory);
+                opj_stream_set_write_function(l_stream, (opj_stream_write_fn) opj_write_from_memory);
+                opj_stream_set_skip_function(l_stream, (opj_stream_skip_fn) opj_skip_from_memory);
+                opj_stream_set_seek_function(l_stream, (opj_stream_seek_fn) opj_seek_from_memory);
+                opj_stream_set_user_data_length(l_stream, p_mem->len /* p_size*/); /* important to avoid an assert() */
+                return l_stream;
+            }
+
+
+/*
+ * Divide an integer by a power of 2 and round upwards.
+ *
+ * a divided by 2^b
+ */
+            inline int int_ceildivpow2(int a, int b) {
+                return (a + (1 << b) - 1) >> b;
+            }
+
+
+            template<typename T>
+            void rawtoimage_fill2(const T *inputbuffer, int w, int h, int numcomps, opj_image_t *image, int pc,
+                                  int bitsallocated, int bitsstored, int highbit, int sign) {
+                uint16_t pmask = 0xffff;
+                pmask = (uint16_t) (pmask >> (bitsallocated - bitsstored));
+
+                const T *p = inputbuffer;
+                if (sign) {
+                    // smask : to check the 'sign' when BitsStored != BitsAllocated
+                    uint16_t smask = 0x0001;
+                    smask = (uint16_t) (
+                            smask << (16 - (bitsallocated - bitsstored + 1)));
+                    // nmask : to propagate sign bit on negative values
+                    int16_t nmask = (int16_t) 0x8000;
+                    nmask = (int16_t) (nmask >> (bitsallocated - bitsstored - 1));
+                    if (pc) {
+                        for (int compno = 0; compno < numcomps; compno++) {
+                            for (int i = 0; i < w * h; i++) {
+                                /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                                uint16_t c = *p;
+                                c = (uint16_t) (c >> (bitsstored - highbit - 1));
+                                if (c & smask) {
+                                    c = (uint16_t) (c | nmask);
+                                } else {
+                                    c = c & pmask;
+                                }
+                                int16_t fix;
+                                memcpy(&fix, &c, sizeof fix);
+                                image->comps[compno].data[i] = fix;
+                                ++p;
+                            }
+                        }
+                    } else {
+                        for (int i = 0; i < w * h; i++) {
+                            for (int compno = 0; compno < numcomps; compno++) {
+                                /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                                uint16_t c = *p;
+                                c = (uint16_t) (c >> (bitsstored - highbit - 1));
+                                if (c & smask) {
+                                    c = (uint16_t) (c | nmask);
+                                } else {
+                                    c = c & pmask;
+                                }
+                                int16_t fix;
+                                memcpy(&fix, &c, sizeof fix);
+                                image->comps[compno].data[i] = fix;
+                                ++p;
+                            }
+                        }
+                    }
+                } else {
+                    if (pc) {
+                        for (int compno = 0; compno < numcomps; compno++) {
+                            for (int i = 0; i < w * h; i++) {
+                                /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                                uint16_t c = *p;
+                                c = (uint16_t) (
+                                        (c >> (bitsstored - highbit - 1)) & pmask);
+                                image->comps[compno].data[i] = c;
+                                ++p;
+                            }
+                        }
+                    } else {
+                        for (int i = 0; i < w * h; i++) {
+                            for (int compno = 0; compno < numcomps; compno++) {
+                                /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                                uint16_t c = *p;
+                                c = (uint16_t) (
+                                        (c >> (bitsstored - highbit - 1)) & pmask);
+                                image->comps[compno].data[i] = c;
+                                ++p;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            template<typename T>
+            void rawtoimage_fill(const T *inputbuffer, int w, int h, int numcomps, opj_image_t *image, int pc) {
+                const T *p = inputbuffer;
+                if (pc) {
+                    for (int compno = 0; compno < numcomps; compno++) {
+                        for (int i = 0; i < w * h; i++) {
+                            /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                            image->comps[compno].data[i] = *p;
+                            ++p;
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < w * h; i++) {
+                        for (int compno = 0; compno < numcomps; compno++) {
+                            /* compno : 0 = GREY, (0, 1, 2) = (R, G, B) */
+                            image->comps[compno].data[i] = *p;
+                            ++p;
+                        }
+                    }
+                }
+            }
+
+            opj_image_t *rawtoimage(const char *inputbuffer8, opj_cparameters_t *parameters,
+                                    size_t fragment_size, int image_width, int image_height, int sample_pixel,
+                                    int bitsallocated, int bitsstored, int highbit, int sign, int quality, int pc) {
+                (void) quality;
+                (void) fragment_size;
+                int w, h;
+                int numcomps;
+                OPJ_COLOR_SPACE color_space;
+                opj_image_cmptparm_t cmptparm[3]; /* maximum of 3 components */
+                opj_image_t *image = nullptr;
+                const void *inputbuffer = inputbuffer8;
+
+                assert(sample_pixel == 1 || sample_pixel == 3);
+                if (sample_pixel == 1) {
+                    numcomps = 1;
+                    color_space = CLRSPC_GRAY;
+                } else // sample_pixel == 3
+                {
+                    numcomps = 3;
+                    color_space = CLRSPC_SRGB;
+                    /* Does OpenJPEg support: CLRSPC_SYCC ?? */
+                }
+                if (bitsallocated % 8 != 0) {
+                    gdcmDebugMacro("BitsAllocated is not % 8");
+                    return nullptr;
+                }
+                assert(bitsallocated % 8 == 0);
+                // eg. fragment_size == 63532 and 181 * 117 * 3 * 8 == 63531 ...
+                assert(((fragment_size + 1) / 2) * 2 ==
+                       (((size_t) image_height * image_width * numcomps * (bitsallocated / 8) + 1) / 2) * 2);
+                int subsampling_dx = parameters->subsampling_dx;
+                int subsampling_dy = parameters->subsampling_dy;
+
+                // FIXME
+                w = image_width;
+                h = image_height;
+
+                /* initialize image components */
+                memset(&cmptparm[0], 0, 3 * sizeof(opj_image_cmptparm_t));
+                //assert( bitsallocated == 8 );
+                for (int i = 0; i < numcomps; i++) {
+                    cmptparm[i].prec = bitsstored;
+                    cmptparm[i].prec = bitsallocated; // FIXME
+                    cmptparm[i].bpp = bitsallocated;
+                    cmptparm[i].sgnd = sign;
+                    cmptparm[i].dx = subsampling_dx;
+                    cmptparm[i].dy = subsampling_dy;
+                    cmptparm[i].w = w;
+                    cmptparm[i].h = h;
+                }
+
+                /* create the image */
+                image = opj_image_create(numcomps, &cmptparm[0], color_space);
+                if (!image) {
+                    return nullptr;
+                }
+                /* set image offset and reference grid */
+                image->x0 = parameters->image_offset_x0;
+                image->y0 = parameters->image_offset_y0;
+                image->x1 = parameters->image_offset_x0 + (w - 1) * subsampling_dx + 1;
+                image->y1 = parameters->image_offset_y0 + (h - 1) * subsampling_dy + 1;
+
+                /* set image data */
+
+                //assert( fragment_size == numcomps*w*h*(bitsallocated/8) );
+                if (bitsallocated <= 8) {
+                    if (sign) {
+                        rawtoimage_fill<int8_t>((const int8_t *) inputbuffer, w, h, numcomps, image, pc);
+                    } else {
+                        rawtoimage_fill<uint8_t>((const uint8_t *) inputbuffer, w, h, numcomps, image, pc);
+                    }
+                } else if (bitsallocated <= 16) {
+                    if (bitsallocated != bitsstored) {
+                        if (sign) {
+                            rawtoimage_fill2<int16_t>((const int16_t *) inputbuffer, w, h, numcomps, image, pc,
+                                                      bitsallocated, bitsstored, highbit, sign);
+                        } else {
+                            rawtoimage_fill2<uint16_t>((const uint16_t *) inputbuffer, w, h, numcomps, image, pc,
+                                                       bitsallocated, bitsstored, highbit, sign);
+                        }
+                    } else {
+                        if (sign) {
+                            rawtoimage_fill<int16_t>((const int16_t *) inputbuffer, w, h, numcomps, image, pc);
+                        } else {
+                            rawtoimage_fill<uint16_t>((const uint16_t *) inputbuffer, w, h, numcomps, image, pc);
+                        }
+                    }
+                } else if (bitsallocated <= 32) {
+                    if (sign) {
+                        rawtoimage_fill<int32_t>((const int32_t *) inputbuffer, w, h, numcomps, image, pc);
+                    } else {
+                        rawtoimage_fill<uint32_t>((const uint32_t *) inputbuffer, w, h, numcomps, image, pc);
+                    }
+                } else // dead branch ?
+                {
+                    opj_image_destroy(image);
+                    return nullptr;
+                }
+
+                return image;
+            }
+
 
 #endif
 
 
-////////////////////////////////////////////////////////////////
+            class JPEG2000Internals {
+            public:
+                JPEG2000Internals()
+                        : nNumberOfThreadsForDecompression(-1) {
+                    memset(&coder_param, 0, sizeof(coder_param));
+                    opj_set_default_encoder_parameters(&coder_param);
+                }
+
+                opj_cparameters coder_param;
+                int nNumberOfThreadsForDecompression;
+            };
+
+            void jpeg2000ImageCodec::SetRate(unsigned int idx, double rate) {
+                Internals->coder_param.tcp_rates[idx] = (float) rate;
+                if (Internals->coder_param.tcp_numlayers <= (int) idx) {
+                    Internals->coder_param.tcp_numlayers = idx + 1;
+                }
+                Internals->coder_param.cp_disto_alloc = 1;
+            }
+
+            double jpeg2000ImageCodec::GetRate(unsigned int idx) const {
+                return (double) Internals->coder_param.tcp_rates[idx];
+            }
+
+            void jpeg2000ImageCodec::SetQuality(unsigned int idx, double q) {
+                Internals->coder_param.tcp_distoratio[idx] = (float) q;
+                if (Internals->coder_param.tcp_numlayers <= (int) idx) {
+                    Internals->coder_param.tcp_numlayers = idx + 1;
+                }
+                Internals->coder_param.cp_fixed_quality = 1;
+            }
+
+            double jpeg2000ImageCodec::GetQuality(unsigned int idx) const {
+                return (double) Internals->coder_param.tcp_distoratio[idx];
+            }
+
+            void jpeg2000ImageCodec::SetTileSize(unsigned int tx, unsigned int ty) {
+                Internals->coder_param.cp_tdx = tx;
+                Internals->coder_param.cp_tdy = ty;
+                Internals->coder_param.tile_size_on = true;
+            }
+
+            void jpeg2000ImageCodec::SetNumberOfResolutions(unsigned int nres) {
+                Internals->coder_param.numresolution = nres;
+            }
+
+            void jpeg2000ImageCodec::SetNumberOfThreadsForDecompression(int nThreads) {
+#if ((OPJ_VERSION_MAJOR == 2 && OPJ_VERSION_MINOR >= 3) || (OPJ_VERSION_MAJOR > 2))
+                if (nThreads < 0) {
+                    const int x = opj_get_num_cpus();
+                    Internals->nNumberOfThreadsForDecompression = x == 1 ? 0 : x;
+                } else {
+                    Internals->nNumberOfThreadsForDecompression = nThreads;
+                }
+#else
+                (void)nThreads;
+  Internals->nNumberOfThreadsForDecompression = 0;
+#endif
+            }
+
+
+            void jpeg2000ImageCodec::SetReversible(bool res) {
+                LossyFlag = !res;
+                Internals->coder_param.irreversible = !res;
+            }
+
+
+            jpeg2000ImageCodec::jpeg2000ImageCodec() {
+                Internals = new JPEG2000Internals;
+                SetNumberOfThreadsForDecompression(-1);
+            }
+
+            jpeg2000ImageCodec::~jpeg2000ImageCodec() {
+                delete Internals;
+            }
+
+
+            ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 //
 //
@@ -205,16 +1020,15 @@ opj_stream_t* opj_stream_create_default_memory_stream(opj_memory_stream* p_memor
 //
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-bool jpeg2000ImageCodec::canHandleTransferSyntax(const std::string& transferSyntax) const
-{
-    IMEBRA_FUNCTION_START();
+            bool jpeg2000ImageCodec::canHandleTransferSyntax(const std::string &transferSyntax) const {
+                IMEBRA_FUNCTION_START() ;
 
-    return (
-                transferSyntax == "1.2.840.10008.1.2.4.90" ||
-                transferSyntax == "1.2.840.10008.1.2.4.91");
+                    return (
+                            transferSyntax == "1.2.840.10008.1.2.4.90" ||
+                            transferSyntax == "1.2.840.10008.1.2.4.91");
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
 
 ////////////////////////////////////////////////////////////////
@@ -227,19 +1041,20 @@ bool jpeg2000ImageCodec::canHandleTransferSyntax(const std::string& transferSynt
 //
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
-bool jpeg2000ImageCodec::encapsulated(const std::string& transferSyntax) const
-{
-    IMEBRA_FUNCTION_START();
+            bool jpeg2000ImageCodec::encapsulated(const std::string &transferSyntax) const {
+                IMEBRA_FUNCTION_START() ;
 
-    if(!canHandleTransferSyntax(transferSyntax))
-    {
-        IMEBRA_THROW(CodecWrongTransferSyntaxError, "Cannot handle the transfer syntax");
-    }
-    return true;
+                    if (!canHandleTransferSyntax(transferSyntax)) {
+                        IMEBRA_THROW(CodecWrongTransferSyntaxError, "Cannot handle the transfer syntax");
+                    }
+                    return true;
 
-    IMEBRA_FUNCTION_END();
-}
+                IMEBRA_FUNCTION_END();
+            }
 
+            bool jpeg2000ImageCodec::defaultInterleaved() const {
+                return false;
+            }
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -250,14 +1065,27 @@ bool jpeg2000ImageCodec::encapsulated(const std::string& transferSyntax) const
 //
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
-std::uint32_t jpeg2000ImageCodec::suggestAllocatedBits(const std::string& /* transferSyntax */, std::uint32_t /* highBit */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::uint32_t jpeg2000ImageCodec::suggestAllocatedBits(const std::string &transferSyntax,
+                                                                   std::uint32_t highBit) const {
+                IMEBRA_FUNCTION_START() ;
 
-    IMEBRA_THROW(DataSetUnknownTransferSyntaxError, "None of the codecs support the specified transfer syntax");
+                    if (canHandleTransferSyntax(transferSyntax)) {
 
-    IMEBRA_FUNCTION_END();
-}
+                        if(highBit == 0)
+                        {
+                            return 1;
+                        }
+
+                        return (highBit + 8) & 0xfffffff8;
+
+                    } else {
+                        IMEBRA_THROW(DataSetUnknownTransferSyntaxError,
+                                     "None of the codecs support the specified transfer syntax");
+
+                    }
+
+                IMEBRA_FUNCTION_END();
+            }
 
 
 ////////////////////////////////////////////////////////////////
@@ -269,115 +1097,148 @@ std::uint32_t jpeg2000ImageCodec::suggestAllocatedBits(const std::string& /* tra
 //
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-std::shared_ptr<image> jpeg2000ImageCodec::getImage(const dataSet& sourceDataSet, std::shared_ptr<streamReader> pStream, tagVR_t /* dataType not used */) const
-{
-    IMEBRA_FUNCTION_START();
+            std::shared_ptr<image> jpeg2000ImageCodec::getImage(const std::string &transferSyntax,
+                                                                const std::string &iimageColorSpace,
+                                                                std::uint32_t channelsNumber,
+                                                                std::uint32_t imageWidth,
+                                                                std::uint32_t imageHeight,
+                                                                bool bSubsampledX,
+                                                                bool bSubsampledY,
+                                                                bool bInterleaved,
+                                                                bool b2Complement,
+                                                                std::uint8_t allocatedBits,
+                                                                std::uint8_t storedBits,
+                                                                std::uint8_t highBit,
+                                                                std::shared_ptr<streamReader> pStream) const {
+                IMEBRA_FUNCTION_START() ;
 
 #ifdef JPEG2000_V1
-    CODEC_FORMAT format = (CODEC_FORMAT)(CODEC_J2K);
+                    CODEC_FORMAT format = (CODEC_FORMAT)(CODEC_J2K);
 #else
-    CODEC_FORMAT format = (CODEC_FORMAT)(OPJ_CODEC_J2K);
+                    CODEC_FORMAT format = (CODEC_FORMAT) (OPJ_CODEC_J2K);
 #endif
 
-    std::shared_ptr<memory> jpegMemory(std::make_shared<memory>());
-    {
-        std::shared_ptr<memoryStreamOutput> memoryStream(std::make_shared<memoryStreamOutput>(jpegMemory));
-        streamWriter memoryStreamWriter(memoryStream);
-        unsigned char tempBuffer[4096];
-        while(!pStream->endReached())
-        {
-            size_t readLength = pStream->readSome(tempBuffer, sizeof(tempBuffer));
-            memoryStreamWriter.write(tempBuffer, readLength);
-        }
-    }
+                    std::shared_ptr<memory> jpegMemory(std::make_shared<memory>());
+                    {
+                        std::shared_ptr<memoryStreamOutput> memoryStream(
+                                std::make_shared<memoryStreamOutput>(jpegMemory));
+                        streamWriter memoryStreamWriter(memoryStream);
+                        unsigned char tempBuffer[4096];
+                        while (!pStream->endReached()) {
+                            size_t readLength = pStream->readSome(tempBuffer, sizeof(tempBuffer));
+                            memoryStreamWriter.write(tempBuffer, readLength);
+                        }
+                    }
 
-    opj_dparameters_t parameters;
-    opj_set_default_decoder_parameters(&parameters);
+                    opj_dparameters_t parameters;
+                    opj_set_default_decoder_parameters(&parameters);
 #ifdef JPEG2000_V1
-    opj_dinfo_t *dinfo;
+                    opj_dinfo_t *dinfo;
 #else
-    opj_codec_t *dinfo;
+                    opj_codec_t *dinfo;
 #endif
 
-    dinfo = opj_create_decompress(format);
-    opj_setup_decoder(dinfo, &parameters);
-    opj_image_t* jp2image(0);
+                    dinfo = opj_create_decompress(format);
+                    opj_setup_decoder(dinfo, &parameters);
+                    opj_image_t *jp2image(0);
 
 #ifdef JPEG2000_V1
-    opj_cio_t* cio = opj_cio_open((opj_common_ptr)dinfo, jpegMemory->data(), (int)jpegMemory->size());
-    if(cio != 0)
-    {
-        jp2image = opj_decode(dinfo, cio);
-        opj_cio_close(cio);
-    }
+                    opj_cio_t* cio = opj_cio_open((opj_common_ptr)dinfo, jpegMemory->data(), (int)jpegMemory->size());
+                    if(cio != 0)
+                    {
+                        jp2image = opj_decode(dinfo, cio);
+                        opj_cio_close(cio);
+                    }
 #else
-    opj_memory_stream memoryStream;
-    memoryStream.pData = jpegMemory->data();
-    memoryStream.dataSize = jpegMemory->size();
-    memoryStream.offset = 0;
+                    opj_memory_stream memoryStream;
+                    memoryStream.pData = jpegMemory->data();
+                    memoryStream.dataSize = jpegMemory->size();
+                    memoryStream.offset = 0;
 
-    opj_stream_t* pJpeg2000Stream = opj_stream_create_default_memory_stream(&memoryStream, true);
-    if(pJpeg2000Stream != 0)
-    {
-        if(opj_read_header(pJpeg2000Stream, dinfo, &jp2image))
-        {
-            if(!opj_decode(dinfo, pJpeg2000Stream, jp2image))
-            {
-                opj_image_destroy(jp2image);
-                jp2image = 0;
+                    opj_stream_t *pJpeg2000Stream = opj_stream_create_default_memory_stream(&memoryStream, true);
+                    if (pJpeg2000Stream != 0) {
+                        if (opj_read_header(pJpeg2000Stream, dinfo, &jp2image)) {
+                            if (!opj_decode(dinfo, pJpeg2000Stream, jp2image)) {
+                                opj_image_destroy(jp2image);
+                                jp2image = 0;
+                            }
+                        }
+                        opj_stream_destroy(pJpeg2000Stream);
+                    }
+                    opj_destroy_codec(dinfo);
+#endif
+                    if (jp2image == 0) {
+                        IMEBRA_THROW(CodecCorruptedFileError, "Could not decode the jpeg2000 image");
+                    }
+
+//                    std::uint32_t width(sourceDataSet.getUint32(0x0028, 0, 0x0011, 0, 0, 0));
+//                    std::uint32_t height(sourceDataSet.getUint32(0x0028, 0, 0x0010, 0, 0, 0));
+//
+//                    std::string colorSpace(sourceDataSet.getString(0x0028, 0, 0x0004, 0, 0, ""));
+
+
+                    std::uint32_t width(imageWidth);
+                    std::uint32_t height(imageHeight);
+                    std::string colorSpace(iimageColorSpace);
+// Create an image
+                    ///////////////////////////////////////////////////////////
+                    bitDepth_t depth;
+                    if (b2Complement) {
+                        if (highBit >= 16) {
+                            depth = bitDepth_t::depthS32;
+                        } else if (highBit >= 8) {
+                            depth = bitDepth_t::depthS16;
+                        } else {
+                            depth = bitDepth_t::depthS8;
+                        }
+                    } else {
+                        if (highBit >= 16) {
+                            depth = bitDepth_t::depthU32;
+                        } else if (highBit >= 8) {
+                            depth = bitDepth_t::depthU16;
+                        } else {
+                            depth = bitDepth_t::depthU8;
+                        }
+                    }
+
+                    std::shared_ptr<image> returnImage(
+                            std::make_shared<image>(
+                                    width,
+                                    height,
+                                    depth,
+                                    colorSpace,
+                                    highBit  //sourceDataSet.getUint32(0x0028, 0, 0x0102, 0, 0, 7)
+                            ));
+
+                    std::shared_ptr<handlers::writingDataHandlerNumericBase> imageHandler(
+                            returnImage->getWritingDataHandler());
+
+                    ::memset(imageHandler->getMemory()->data(), 0, imageHandler->getSize());
+
+                    // Copy channels
+                    for (unsigned int channelNumber(0); channelNumber != jp2image->numcomps; ++channelNumber) {
+                        const opj_image_comp_t &channelData = jp2image->comps[channelNumber];
+
+                        imageHandler->copyFromInt32Interleaved(channelData.data,
+                                                               channelData.dx,
+                                                               channelData.dy,
+                                                               channelData.x0,
+                                                               channelData.y0,
+                                                               channelData.x0 + channelData.w * channelData.dx,
+                                                               channelData.y0 + channelData.h * channelData.dy,
+                                                               channelNumber,
+                                                               width,
+                                                               height,
+                                                               jp2image->numcomps);
+                    }
+
+                    opj_image_destroy(jp2image);
+
+                    return returnImage;
+
+
+                IMEBRA_FUNCTION_END();
             }
-        }
-        opj_stream_destroy(pJpeg2000Stream);
-    }
-    opj_destroy_codec(dinfo);
-#endif
-    if(jp2image == 0)
-    {
-        IMEBRA_THROW(CodecCorruptedFileError, "Could not decode the jpeg2000 image");
-    }
-
-    std::uint32_t width(sourceDataSet.getUint32(0x0028, 0, 0x0011, 0, 0, 0));
-    std::uint32_t height(sourceDataSet.getUint32(0x0028, 0, 0x0010, 0, 0, 0));
-
-    std::string colorSpace(sourceDataSet.getString(0x0028, 0, 0x0004, 0, 0, ""));
-
-    std::shared_ptr<image> returnImage(
-        std::make_shared<image>(
-                    width,
-                    height,
-                    bitDepth_t::depthS16,
-                    colorSpace,
-                    sourceDataSet.getUint32(0x0028, 0, 0x0102, 0, 0, 7)));
-
-    std::shared_ptr<handlers::writingDataHandlerNumericBase> imageHandler(returnImage->getWritingDataHandler());
-
-    ::memset(imageHandler->getMemory()->data(), 0, imageHandler->getSize());
-
-    // Copy channels
-    for(unsigned int channelNumber(0); channelNumber != jp2image->numcomps; ++channelNumber)
-    {
-        const opj_image_comp_t& channelData = jp2image->comps[channelNumber];
-
-        imageHandler->copyFromInt32Interleaved(channelData.data,
-                                               channelData.dx,
-                                               channelData.dy,
-                                               channelData.x0,
-                                               channelData.y0,
-                                               channelData.x0 + channelData.w * channelData.dx,
-                                               channelData.y0 + channelData.h * channelData.dy,
-                                               channelNumber,
-                                               width,
-                                               height,
-                                               jp2image->numcomps);
-    }
-
-    opj_image_destroy(jp2image);
-
-    return returnImage;
-
-
-    IMEBRA_FUNCTION_END();
-}
 
 
 /////////////////////////////////////////////////////////////////
@@ -389,29 +1250,258 @@ std::shared_ptr<image> jpeg2000ImageCodec::getImage(const dataSet& sourceDataSet
 //
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-void jpeg2000ImageCodec::setImage(
-        std::shared_ptr<streamWriter> /* pDestStream */,
-        std::shared_ptr<image> /* pImage */,
-        const std::string& /* transferSyntax */,
-        imageQuality_t /* imageQuality */,
-        tagVR_t /* dataType */,
-        std::uint32_t /* allocatedBits */,
-        bool /* bSubSampledX */,
-        bool /* bSubSampledY */,
-        bool /* bInterleaved */,
-        bool /* b2Complement */) const
-{
-    IMEBRA_FUNCTION_START();
-
-    IMEBRA_THROW(DataSetUnknownTransferSyntaxError, "None of the codecs support the specified transfer syntax");
-
-    IMEBRA_FUNCTION_END();
-}
+            void jpeg2000ImageCodec::setImage(
+                    std::shared_ptr<streamWriter> pDestStream,
+                    std::shared_ptr<const image> pSourceImage,
+                    const std::string &transferSyntax,
+                    imageQuality_t imageQuality,
+                    std::uint32_t allocatedBits,
+                    bool bSubSampledX,
+                    bool bSubSampledY,
+                    bool bInterleaved,
+                    bool b2Complement) const {
+                IMEBRA_FUNCTION_START() ;
 
 
-} // namespace codecs
+                    const uint32_t highBit = pSourceImage->getHighBit();
+                    const uint32_t bitsstored = highBit + 1;
+                    const uint32_t samplePerPixel = pSourceImage->getChannelsNumber();
 
-} // namespace implementation
+
+                    std::shared_ptr<handlers::readingDataHandlerNumericBase> dataReader = pSourceImage->getReadingDataHandler();
+
+                    size_t sz = dataReader->getMemorySize();
+                    const std::uint8_t *buffer = dataReader->getMemoryBuffer();
+                    uint32_t image_width = 0;
+                    uint32_t image_height = 0;
+                    pSourceImage->getSize(&image_width, &image_height);
+
+                    std::string colorSpace = pSourceImage->getColorSpace();
+
+
+                    std::vector<char> rgbyteCompressed;
+                    rgbyteCompressed.resize(image_width * image_height * 4);
+                    size_t cbyteCompressed;
+
+                    int planarConfiguration = 0;
+                    int sign = (int) (pSourceImage->isSigned() ? 1 : 0);
+
+
+                    bool b = codeFrameIntoBuffer((char *) &rgbyteCompressed[0], rgbyteCompressed.size(),
+                                                 cbyteCompressed, reinterpret_cast<const char *>(buffer), sz,
+                                                 image_width, image_height,
+                                                 (int) samplePerPixel,
+                                                 (int) allocatedBits,
+                                                 (int) bitsstored,
+                                                 (int) highBit,
+                                                 sign,
+                                                 planarConfiguration
+                    );
+                    if (!b) {
+                        IMEBRA_THROW(DataSetUnknownTransferSyntaxError,
+                                     " change to  JPEG2000 failed !");
+                    }
+                    pDestStream->write(reinterpret_cast<const uint8_t *>(&rgbyteCompressed[0]),
+                                       (uint32_t) cbyteCompressed);
+
+
+                IMEBRA_FUNCTION_END();
+            }
+
+            bool jpeg2000ImageCodec::codeFrameIntoBuffer(char *outdata, size_t outlen, size_t &complen,
+                                                         const char *inputdata, size_t inputlength,
+                                                         uint32_t image_width, uint32_t image_height,
+
+                                                         int sample_pixel,
+                                                         int bitsallocated,
+                                                         int bitsstored,
+                                                         int highbit,
+                                                         int sign,
+                                                         int planarConfiguration
+            ) const {
+
+                complen = 0; // default init
+#if 0
+                if( NeedOverlayCleanup )
+    {
+    gdcmErrorMacro( "TODO" );
+    return false;
+    }
+#endif
+//                const unsigned int *dims = this->GetDimensions();
+//                int image_width = dims[0];
+//                int image_height = dims[1];
+                int numZ = 0; //dims[2];
+                //  const PixelFormat &pf = this->GetPixelFormat();
+//                int sample_pixel = pf.GetSamplesPerPixel();
+//                int bitsallocated = pf.GetBitsAllocated();
+//                int bitsstored = pf.GetBitsStored();
+//                int highbit = pf.GetHighBit();
+//                int sign = pf.GetPixelRepresentation();
+                int quality = 100;
+
+                //// input_buffer is ONE image
+                //// fragment_size is the size of this image (fragment)
+                (void) numZ;
+                bool bSuccess;
+                //bool delete_comment = true;
+                opj_cparameters_t parameters;  /* compression parameters */
+                opj_image_t *image = nullptr;
+                //quality = 100;
+
+                /* set encoding parameters to default values */
+                //memset(&parameters, 0, sizeof(parameters));
+                //opj_set_default_encoder_parameters(&parameters);
+
+                memcpy(&parameters, &(Internals->coder_param), sizeof(parameters));
+
+                if ((parameters.cp_disto_alloc || parameters.cp_fixed_alloc || parameters.cp_fixed_quality)
+                    && (!(parameters.cp_disto_alloc ^ parameters.cp_fixed_alloc ^ parameters.cp_fixed_quality))) {
+                    IMEBRA_THROW(DataSetUnknownTransferSyntaxError,
+                                 " Error: options -r -q and -f cannot be used together.!");
+                    return false;
+                }        /* mod fixed_quality */
+
+                /* if no rate entered, lossless by default */
+                if (parameters.tcp_numlayers == 0) {
+                    parameters.tcp_rates[0] = 0;
+                    parameters.tcp_numlayers = 1;
+                    parameters.cp_disto_alloc = 1;
+                }
+
+                if (parameters.cp_comment == nullptr) {
+                    const char comment[] = "Created by GDCM/OpenJPEG version %s";
+                    const char *vers = opj_version();
+                    parameters.cp_comment = (char *) malloc(strlen(comment) + 10);
+                    snprintf(parameters.cp_comment, strlen(comment) + 10, comment, vers);
+                    /* no need to delete parameters.cp_comment on exit */
+                    //delete_comment = false;
+                }
+
+                // Compute the proper number of resolutions to use.
+                // This is mostly done for images smaller than 64 pixels
+                // along any dimension.
+                unsigned int numberOfResolutions = 0;
+
+                unsigned int tw = image_width >> 1;
+                unsigned int th = image_height >> 1;
+
+                while (tw && th) {
+                    numberOfResolutions++;
+                    tw >>= 1;
+                    th >>= 1;
+                }
+
+                // Clamp the number of resolutions to 6.
+                if (numberOfResolutions > 6) {
+                    numberOfResolutions = 6;
+                }
+
+                parameters.numresolution = numberOfResolutions;
+
+
+                /* decode the source image */
+                /* ----------------------- */
+
+                image = rawtoimage((const char *) inputdata, &parameters,
+                                   inputlength,
+                                   image_width, image_height,
+                                   sample_pixel, bitsallocated, bitsstored, highbit, sign, quality,
+                                   planarConfiguration//this->GetPlanarConfiguration()
+                );
+                if (!image) {
+                    return false;
+                }
+
+                /* encode the destination image */
+                /* ---------------------------- */
+                parameters.cod_format = J2K_CFMT; /* J2K format output */
+                size_t codestream_length;
+                opj_codec_t *cinfo = nullptr;
+                opj_stream_t *cio = nullptr;
+
+                /* get a J2K compressor handle */
+                cinfo = opj_create_compress(CODEC_J2K);
+
+
+                /* set up the encoder parameters using the current image and using user parameters */
+                opj_setup_encoder(cinfo, &parameters, image);
+
+                myfile mysrc;
+                myfile *fsrc = &mysrc;
+                char *buffer_j2k = new char[inputlength]; // overallocated
+                fsrc->mem = fsrc->cur = buffer_j2k;
+                fsrc->len = 0; //inputlength;
+
+                /* open a byte stream for writing */
+                /* allocate memory for all tiles */
+                cio = opj_stream_create_memory_stream(fsrc, OPJ_J2K_STREAM_CHUNK_SIZE, false);
+                if (!cio) {
+                    return false;
+                }
+                /* encode the image */
+                /*if (*indexfilename)          // If need to extract codestream information
+                  bSuccess = opj_encode_with_info(cinfo, cio, image, &cstr_info);
+                  else*/
+                bSuccess = opj_start_compress(cinfo, image, cio) ? true : false;
+                bSuccess = bSuccess && opj_encode(cinfo, cio);
+                bSuccess = bSuccess && opj_end_compress(cinfo, cio);
+
+                if (!bSuccess) {
+                    opj_stream_destroy(cio);
+                    return false;
+                }
+                codestream_length = mysrc.len;
+
+                /* write the buffer to disk */
+                //f = fopen(parameters.outfile, "wb");
+                //if (!f) {
+                //  fprintf(stderr, "failed to open %s for writing\n", parameters.outfile);
+                //  return 1;
+                //}
+                //fwrite(cio->buffer, 1, codestream_length, f);
+                //#define MDEBUG
+#ifdef MDEBUG
+                static int c = 0;
+  std::ostringstream os;
+  os << "/tmp/debug";
+  os << c;
+  c++;
+  os << ".j2k";
+  std::ofstream debug(os.str().c_str(), std::ios::binary);
+  debug.write((char*)(cio->buffer), codestream_length);
+  debug.close();
+#endif
+
+                bool success = false;
+                if (codestream_length <= outlen) {
+                    success = true;
+                    memcpy(outdata, (char *) (mysrc.mem), codestream_length);
+                }
+                delete[] buffer_j2k;
+
+                /* close and free the byte stream */
+                opj_stream_destroy(cio);
+
+                /* free remaining compression structures */
+                opj_destroy_codec(cinfo);
+                complen = codestream_length;
+
+                /* free user parameters structure */
+                if (parameters.cp_comment) free(parameters.cp_comment);
+                if (parameters.cp_matrice) free(parameters.cp_matrice);
+
+                /* free image data */
+                opj_image_destroy(image);
+
+                return success;
+
+            }
+
+
+        } // namespace codecs
+
+    } // namespace implementation
 
 } // namespace imebra
 
