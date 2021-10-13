@@ -17,8 +17,6 @@ If you do not want to be bound by the GPL terms (such as the requirement
 */
 
 #include <sstream>
-#include <iomanip>
-#include <limits>
 
 #include "exceptionImpl.h"
 #include "dataHandlerStringImpl.h"
