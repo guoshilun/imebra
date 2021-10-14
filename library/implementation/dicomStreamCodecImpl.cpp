@@ -884,17 +884,25 @@ namespace imebra {
                             // We found the charsets list
                             if (tagId == 0x0008 && tagSubId == 0x0005) {
                                 charsetsList_t charsets;
-                                std::shared_ptr<handlers::readingDataHandler> charsetsHandler = pDataSet->getReadingDataHandler(
-                                        0x0008, 0, 0x0005, 0);
-                                size_t sz = charsetsHandler->getSize();
-                                char *buffer = new char[sz + 1]{0};
-                                for (size_t componentId(0); componentId != sz; ++componentId) {
-                                    buffer[componentId] = charsetsHandler->getInt8(componentId);
+                                std::shared_ptr<handlers::readingDataHandler> charsetsHandler(pDataSet->getReadingDataHandler(0x0008, 0, 0x0005, 0));
+                                std::ostringstream SpecCharset ;
+                                for(size_t componentId(0); componentId != charsetsHandler->getSize(); ++componentId)
+                                {
+                                    const std::string charset(charsetsHandler->getString(componentId));
+                                    SpecCharset<< charset.c_str() ;
                                 }
-                                std::string csstr(buffer);
-                                charsets.push_back(csstr);
-                                delete[] buffer;
+                                std::cout << "Charset si :" <<  SpecCharset.str() << std::endl;
+                                std::string  charsetDcmName =SpecCharset.str();
+                                SpecCharset.clear();
+                                try{
+                                    defaultCharsetConversion::getDictionary().getCharsetInformation(charsetDcmName, 0);
+                                    charsets.push_back(charsetDcmName);
+                                }
+                                catch (const CharsetConversionNoTableError&){
+                                    charsets.push_back("ISO_IR 6");
+                                }
                                 pDataSet->setCharsetsList(charsets);
+                                SpecCharset.clear();
 
                             }
                             continue;
