@@ -10,7 +10,8 @@
 cmake_minimum_required(VERSION 3.0)
 
 project("imebra")
-
+# Enable ExternalProject CMake module (so we can load GoogleTest)
+include(ExternalProject)
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
 if ("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
     set(CMAKE_BUILD_TYPE "Debug") # Default build mode is debug
@@ -91,12 +92,24 @@ endif (APPLE)
 # LIBRARY
 #
 ##############################################
+
+
+
+##############################################
+#  https://gitee.com/dhz1217/libco.git  v1.42.0
+
+# libuv  v1.42.0
+
+
 add_definitions(-DIMEBRA_DLL)
 add_definitions(-DIMEBRA_DLL_EXPORTS)
 add_definitions(-DNOMINMAX)
 
 file(GLOB imebra_interface "${CMAKE_CURRENT_SOURCE_DIR}/library/include/imebra/*.h")
-file(GLOB imebra_include "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.h")
+file(GLOB imebra_include "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.h"
+        “${CMAKE_CURRENT_BINARY_DIR}/libuv_install/include/*.h"
+        “${CMAKE_CURRENT_BINARY_DIR}/libuv_install/include/uv/*.h"
+)
 file(GLOB imebra_src "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.cpp")
 file(GLOB imebra_implementation_src "${CMAKE_CURRENT_SOURCE_DIR}/library/implementation/*.cpp")
 file(GLOB imebra_implementation_include "${CMAKE_CURRENT_SOURCE_DIR}/library/implementation/*.h")
@@ -148,6 +161,8 @@ if (NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
     link_directories(${LINK_DIRECTORIES} ${ADDITIONAL_LIB_PATH})
 endif (NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
 
+
+
 # Add jpeg2000 if specified
 if ("${JPEG2000}" STREQUAL "1")
     set(imebra_libraries ${imebra_libraries} openjpeg)
@@ -197,6 +212,8 @@ else ("${IMEBRA_OBJC}" STREQUAL "1")
 endif ("${IMEBRA_OBJC}" STREQUAL "1")
 
 
+
+
 # Add flags specific to the compiler
 #-----------------------------------
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -229,8 +246,8 @@ endif ()
 #set(imebra_include ${imebra_include} ${OPENJPEG_INCLUDE_DIRS})
 
 if ("${JPEG2000}" STREQUAL "2")
-    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir}   ${OPENJPEG_INCLUDE_DIRS})
-    target_link_libraries(imebra ${imebra_libraries}  ${OPENJPEG_LIBRARIES})
+    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir}   ${OPENJPEG_INCLUDE_DIRS}   )
+    target_link_libraries(imebra ${imebra_libraries}  ${OPENJPEG_LIBRARIES} )
 else ()
     target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
     target_link_libraries(imebra ${imebra_libraries})
@@ -304,8 +321,7 @@ if (NOT IOS)
     # We need thread support
     find_package(Threads REQUIRED)
 
-    # Enable ExternalProject CMake module (so we can load GoogleTest)
-    include(ExternalProject)
+
 
     # Download and install GoogleTest
     ExternalProject_Add(
@@ -414,14 +430,18 @@ if (NOT IOS)
     #
     # scpExample example
     #
-    ##############################################
-    file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp")
+
+
+    file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp"
+                                 "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.h"
+    )
+
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(scpExample ${scpExample_sources})
 
-    target_link_libraries(scpExample imebra)
+    add_executable(scpExample ${scpExample_sources} )
+    target_link_libraries(scpExample imebra -luv)
 
 endif ()
 
