@@ -227,4 +227,146 @@ const std::list<std::string> transferSyntaxes
         };
 
 
+void initDicomProcessor(imebra::PresentationContexts&  presentationContexts) {
+
+    for (const std::string &abstractSyntax: abstractSyntaxes) {
+        imebra::PresentationContext context(abstractSyntax);
+        for (const std::string &transferSyntax: transferSyntaxes) {
+            context.addTransferSyntax(transferSyntax);
+        }
+        presentationContexts.addPresentationContext(context);
+    }
+}
+
+
+void onCStoreCallback(imebra::DataSet &payload, std::string &dcmStoreDir) {
+    std::string patientId = payload.getString(imebra::TagId(imebra::tagId_t::PatientID_0010_0020),
+                                              0, "");
+    std::string studyUid = payload.getString(
+            imebra::TagId(imebra::tagId_t::StudyInstanceUID_0020_000D),
+            0, "");
+
+    std::string seriesUid = payload.getString(
+            imebra::TagId(imebra::tagId_t::SeriesInstanceUID_0020_000E),
+            0, "");
+    std::string sopInstUid = payload.getString(
+            imebra::TagId(imebra::tagId_t::SOPInstanceUID_0008_0018), 0, "");
+
+    if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
+        return;
+
+    }
+    std::ostringstream saveTo;
+    saveTo << dcmStoreDir << patientId << "/" << studyUid << "/" << seriesUid << "/";
+
+    std::stringstream commandText;
+    commandText << "mkdir -p  \"" << saveTo.str() << "\"";
+    std::string command = commandText.str();
+    commandText.clear();
+    std::system(command.c_str());
+    saveTo << sopInstUid << ".dcm";
+    std::string savePath = saveTo.str();
+    saveTo.clear();
+    imebra::CodecFactory::save(payload, savePath, imebra::codecType_t::dicom);
+    std::wcout << L"Save DicomFile To:" << savePath.c_str() << std::endl;
+}
+
+
+
+
+void outputDatasetTags(const imebra::DataSet& dataset, const std::wstring& prefix)
+{
+    // Get all the tags
+    imebra::tagsIds_t tags = dataset.getTags();
+
+    // Output all the tags
+    for(const imebra::TagId& tagId: tags)
+    {
+        try
+        {
+            std::wstring tagName = imebra::DicomDictionary::getUnicodeTagDescription(tagId);
+            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (" << tagName << L")" << std::endl;
+        }
+        catch(const imebra::DictionaryUnknownTagError&)
+        {
+            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (Unknown tag)" << std::endl;
+        }
+
+        imebra::Tag tag(dataset.getTag(tagId));
+
+        for(size_t itemId(0); ; ++itemId)
+        {
+            try
+            {
+                imebra::DataSet sequence = tag.getSequenceItem(itemId);
+                std::wcout << prefix << L"  SEQUENCE " << itemId << std::endl;
+                outputDatasetTags(sequence, prefix + L"    ");
+            }
+            catch(const imebra::MissingDataElementError&)
+            {
+                break;
+            }
+        }
+
+        for(size_t bufferId(0); bufferId != tag.getBuffersCount(); ++bufferId)
+        {
+            imebra::ReadingDataHandler handler = tag.getReadingDataHandler(bufferId);
+            if(handler.getDataType() != imebra::tagVR_t::OW && handler.getDataType() != imebra::tagVR_t::OB)
+            {
+                for(size_t scanHandler(0); scanHandler != handler.getSize(); ++scanHandler)
+                {
+                    std::wcout << prefix << L"  buffer " << bufferId << L", position "<< scanHandler << ":" << handler.getUnicodeString(scanHandler) << std::endl;
+                }
+            }
+            else
+            {
+                std::wcout << prefix << L"  Not shown: size " << handler.getSize() << " elements" << std::endl;
+            }
+
+        }
+    }
+}
+
+
+///
+/// \brief Calls outputDatasetTags to display both the command dataset and the
+///        payload dataset.
+///
+/// \param title   title to display before the datasets
+/// \param command DIMSE command containing the command and payload datasets
+///
+//////////////////////////////////////////////////////////////////////////////////////
+void outputCommandTags(const std::string& title, const imebra::DimseCommand& command)
+{
+    if(!title.empty())
+    {
+        std::wcout << std::endl;
+        std::wcout << std::endl;
+        std::wcout << title.c_str() << std::endl;
+        std::wcout << std::wstring(title.size(), L'*') << std::endl;
+        std::wcout << std::endl;
+    }
+
+    try
+    {
+        // Get the header dataset
+        imebra::DataSet header = command.getCommandDataSet();
+        std::wcout << std::endl;
+        std::wcout << L"    HEADER:" << std::endl;
+        std::wcout << L"    -------" << std::endl;
+        outputDatasetTags(header, L"    ");
+
+        // Get the payload dataset
+        imebra::DataSet payload = command.getPayloadDataSet();
+        std::wcout << std::endl;
+        std::wcout << L"    PAYLOAD:" << std::endl;
+        std::wcout << L"    --------" << std::endl;
+        outputDatasetTags(payload, L"    ");
+    }
+    catch (const imebra::MissingItemError&)
+    {
+        // We arrive here if the payload we request above does not exist.
+    }
+}
+
 #endif //IMEBRA_SCPDEFINE_H
