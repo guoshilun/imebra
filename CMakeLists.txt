@@ -97,8 +97,7 @@ endif (APPLE)
 
 ##############################################
 #  https://gitee.com/dhz1217/libco.git  v1.42.0
-
-# libuv  v1.42.0
+#  https://github.com/CopernicaMarketingSoftware/AMQP-CPP.git   v4.3.15
 
 
 add_definitions(-DIMEBRA_DLL)
@@ -440,8 +439,8 @@ if (NOT IOS)
     # Add the source files to the project
     #------------------------------------
 
-    add_executable(scpExample ${scpExample_sources} )
-    target_link_libraries(scpExample imebra -luv)
+    add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h)
+    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp)
 
 endif ()
 

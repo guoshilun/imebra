@@ -7,6 +7,10 @@
 
 
 #include <imebra/imebra.h>
+#include <uv.h>
+#include "DicomMessageHandler.h"
+#include "DcmInfo.h"
+
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
         //  用于支持CEcho SCP 的传输语法
@@ -227,7 +231,123 @@ const std::list<std::string> transferSyntaxes
         };
 
 
-void initDicomProcessor(imebra::PresentationContexts&  presentationContexts) {
+////////////////////////////////////////////////////////////////
+/////  RabbitMQ  消息队列设置
+/////////////////////////////////////////////////////////////
+
+const char *MQ_ADDRESS = "amqp://root:root@localhost/imebra";
+
+const char *MQ_EXCHANG = "exchange.imebra";
+const char *MQ_QUEUE = "queue.imebra";
+const char *MQ_ROUTING_KEY = "DICOM";
+
+
+const char *MQ_QUEUE_CT = "queue.imebra.ct";
+const char *MQ_QUEUE_DR = "queue.imebra.dr";
+
+
+const char *DEAD_EXCAHGE = "exchange.imebra.dead";
+const char *DEAD_QUEUE = "queue.imebra.dead";
+const char *DEAD_ROUTING_KEY = "DICOM.dead";
+
+// 1分钟
+const size_t ONE_MINITE = 60 * 1000;
+
+void setupRabbitRuntime(uv_loop_s *const loop) {
+
+    std::wstring SUCCESS(L" 成功");
+    std::wstring FAILED(L" 失败:");
+    DicomMessageHandler mqHandler(loop);
+    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::TcpConnection mqConn(&mqHandler, mqAddres);
+    AMQP::TcpChannel mqPtr(&mqConn);
+
+    AMQP::TcpChannel deadChannel(&mqConn);
+
+    //-----------创建相关的消息队列
+    ///-----------------创建死信消息队列
+    AMQP::Table deadArguments;
+    // 在声明队列的时候可以通过 x-message-ttl 属性来控制消息的TTL， 这个参数的单位是毫秒
+    //  指定消息过期时间（毫秒），消息过期后自动删除死信消息，防止把磁盘用完！
+    //  1小时过期：
+    deadArguments["x-message-ttl"] = 60 * ONE_MINITE;
+    deadChannel.declareExchange(DEAD_EXCAHGE, AMQP::fanout, AMQP::durable)
+            .onSuccess([&]() {
+                //by now the exchange is created
+                std::wcout << L"创建死信交换机 :" << DEAD_EXCAHGE << SUCCESS << std::endl;
+            })
+            .onError([&](const char *message) {
+                //something went wrong creating the exchange
+                std::wcout << L"创建死信交换机 :" << DEAD_EXCAHGE << FAILED << message << std::endl;
+            });
+    deadChannel.declareQueue(DEAD_QUEUE, AMQP::durable, deadArguments)
+            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                std::wcout << L"创建死信队列 :" << name.c_str() << SUCCESS << std::endl;
+            })
+            .onError([&](const char *message) {
+                // none of the messages were published
+                // now we have to do it all over again
+                std::wcout << L"创建死信队列 :" << DEAD_QUEUE << FAILED << message << std::endl;
+            });
+    deadChannel.bindQueue(DEAD_EXCAHGE, DEAD_QUEUE, DEAD_ROUTING_KEY).onSuccess(
+                    [&]() {
+                        //by now the exchange is created
+                        std::wcout << L"创建死信队列 :" << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << SUCCESS
+                                   << std::endl;
+                    })
+            .onError([&](const char *message) {
+                // none of the messages were published
+                // now we have to do it all over again
+                std::wcout << L"创建死信队列 :" << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << FAILED << message << std::endl;
+            }).onFinalize([&deadChannel]() {
+                std::wcout << L"死信TcpChannel 资源回收" << std::endl;
+                deadChannel.close();
+            });
+
+
+
+    //////////////////////////////////////////////////
+    //////创建DICOM 收图消息队列
+    //////////////////////////////////////////////////////
+
+    AMQP::Table arguments;
+    arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
+    arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
+    //  消息过期时间为60 分钟
+    arguments["x-message-ttl"] = 60 * ONE_MINITE;
+    mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
+            .onSuccess([&]() {
+                //by now the exchange is created
+                std::wcout << L"创建DICOM收图交换机:" << MQ_EXCHANG << SUCCESS << std::endl;
+            })
+
+            .onError([&](const char *message) {
+                //something went wrong creating the exchange
+                std::wcout << L"创建DICOM收图交换机:" << MQ_EXCHANG << FAILED << message << std::endl;
+            });
+    mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
+            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                std::wcout << L"创建DICOM收图队列:" << name.c_str() << SUCCESS << std::endl;
+            })
+            .onError([&](const char *message) {
+                // none of the messages were published
+                // now we have to do it all over again
+                std::wcout << L"创建DICOM收图队列:" << MQ_QUEUE << FAILED << message << std::endl;
+            });
+    mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
+        std::wcout << L"绑定收图队列:" << MQ_QUEUE << " TO:" << MQ_EXCHANG << SUCCESS << std::endl;
+        uv_stop(loop);
+    }).onError([&](const char *message) {
+        std::wcout << L"绑定收图队列:" << MQ_QUEUE << " TO:" << MQ_EXCHANG << FAILED << message << std::endl;
+    }).onFinalize([&loop, &mqPtr]() {
+        std::wcout << L"收图TcpChannel 资源回收" << std::endl;
+        mqPtr.close();
+    });
+    uv_run(loop, UV_RUN_DEFAULT);
+}
+
+
+void setupDicomContexts(imebra::PresentationContexts &presentationContexts) {
 
     for (const std::string &abstractSyntax: abstractSyntaxes) {
         imebra::PresentationContext context(abstractSyntax);
@@ -239,87 +359,72 @@ void initDicomProcessor(imebra::PresentationContexts&  presentationContexts) {
 }
 
 
-void onCStoreCallback(imebra::DataSet &payload, std::string &dcmStoreDir) {
-    std::string patientId = payload.getString(imebra::TagId(imebra::tagId_t::PatientID_0010_0020),
-                                              0, "");
-    std::string studyUid = payload.getString(
-            imebra::TagId(imebra::tagId_t::StudyInstanceUID_0020_000D),
-            0, "");
+void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir) {
 
-    std::string seriesUid = payload.getString(
-            imebra::TagId(imebra::tagId_t::SeriesInstanceUID_0020_000E),
-            0, "");
-    std::string sopInstUid = payload.getString(
-            imebra::TagId(imebra::tagId_t::SOPInstanceUID_0008_0018), 0, "");
 
+    DcmInfo dcmInfo(payload);
+
+    std::string patientId = dcmInfo.getPatientId();
+    std::string studyUid = dcmInfo.getStudyUid();
+
+    std::string seriesUid = dcmInfo.getSeriesUid();
+    std::string sopInstUid = dcmInfo.getSopInstUid();
     if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
         return;
 
     }
-    std::ostringstream saveTo;
-    saveTo << dcmStoreDir << patientId << "/" << studyUid << "/" << seriesUid << "/";
+    std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
 
-    std::stringstream commandText;
-    commandText << "mkdir -p  \"" << saveTo.str() << "\"";
-    std::string command = commandText.str();
-    commandText.clear();
-    std::system(command.c_str());
-    saveTo << sopInstUid << ".dcm";
-    std::string savePath = saveTo.str();
-    saveTo.clear();
-    imebra::CodecFactory::save(payload, savePath, imebra::codecType_t::dicom);
-    std::wcout << L"Save DicomFile To:" << savePath.c_str() << std::endl;
+    if (access(saveTo.c_str(), F_OK) != 0) {
+        std::wcout << saveTo.c_str() << std::endl;
+        std::string commandText("mkdir -p  \"" + saveTo + "\"");
+        std::system(commandText.c_str());
+    }
+
+    std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
+    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
+    //  std::wcout << L"Save DicomFile To:" << sopInstUid.c_str() << std::endl;
+    messages.insert(dcmInfo);
 }
 
 
-
-
-void outputDatasetTags(const imebra::DataSet& dataset, const std::wstring& prefix)
-{
+void outputDatasetTags(const imebra::DataSet &dataset, const std::wstring &prefix) {
     // Get all the tags
     imebra::tagsIds_t tags = dataset.getTags();
 
     // Output all the tags
-    for(const imebra::TagId& tagId: tags)
-    {
-        try
-        {
+    for (const imebra::TagId &tagId: tags) {
+        try {
             std::wstring tagName = imebra::DicomDictionary::getUnicodeTagDescription(tagId);
-            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (" << tagName << L")" << std::endl;
+            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (" << tagName
+                       << L")" << std::endl;
         }
-        catch(const imebra::DictionaryUnknownTagError&)
-        {
-            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (Unknown tag)" << std::endl;
+        catch (const imebra::DictionaryUnknownTagError &) {
+            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (Unknown tag)"
+                       << std::endl;
         }
 
         imebra::Tag tag(dataset.getTag(tagId));
 
-        for(size_t itemId(0); ; ++itemId)
-        {
-            try
-            {
+        for (size_t itemId(0);; ++itemId) {
+            try {
                 imebra::DataSet sequence = tag.getSequenceItem(itemId);
                 std::wcout << prefix << L"  SEQUENCE " << itemId << std::endl;
                 outputDatasetTags(sequence, prefix + L"    ");
             }
-            catch(const imebra::MissingDataElementError&)
-            {
+            catch (const imebra::MissingDataElementError &) {
                 break;
             }
         }
 
-        for(size_t bufferId(0); bufferId != tag.getBuffersCount(); ++bufferId)
-        {
+        for (size_t bufferId(0); bufferId != tag.getBuffersCount(); ++bufferId) {
             imebra::ReadingDataHandler handler = tag.getReadingDataHandler(bufferId);
-            if(handler.getDataType() != imebra::tagVR_t::OW && handler.getDataType() != imebra::tagVR_t::OB)
-            {
-                for(size_t scanHandler(0); scanHandler != handler.getSize(); ++scanHandler)
-                {
-                    std::wcout << prefix << L"  buffer " << bufferId << L", position "<< scanHandler << ":" << handler.getUnicodeString(scanHandler) << std::endl;
+            if (handler.getDataType() != imebra::tagVR_t::OW && handler.getDataType() != imebra::tagVR_t::OB) {
+                for (size_t scanHandler(0); scanHandler != handler.getSize(); ++scanHandler) {
+                    std::wcout << prefix << L"  buffer " << bufferId << L", position " << scanHandler << ":"
+                               << handler.getUnicodeString(scanHandler) << std::endl;
                 }
-            }
-            else
-            {
+            } else {
                 std::wcout << prefix << L"  Not shown: size " << handler.getSize() << " elements" << std::endl;
             }
 
@@ -336,10 +441,8 @@ void outputDatasetTags(const imebra::DataSet& dataset, const std::wstring& prefi
 /// \param command DIMSE command containing the command and payload datasets
 ///
 //////////////////////////////////////////////////////////////////////////////////////
-void outputCommandTags(const std::string& title, const imebra::DimseCommand& command)
-{
-    if(!title.empty())
-    {
+void outputCommandTags(const std::string &title, const imebra::DimseCommand &command) {
+    if (!title.empty()) {
         std::wcout << std::endl;
         std::wcout << std::endl;
         std::wcout << title.c_str() << std::endl;
@@ -347,8 +450,7 @@ void outputCommandTags(const std::string& title, const imebra::DimseCommand& com
         std::wcout << std::endl;
     }
 
-    try
-    {
+    try {
         // Get the header dataset
         imebra::DataSet header = command.getCommandDataSet();
         std::wcout << std::endl;
@@ -363,10 +465,148 @@ void outputCommandTags(const std::string& title, const imebra::DimseCommand& com
         std::wcout << L"    --------" << std::endl;
         outputDatasetTags(payload, L"    ");
     }
-    catch (const imebra::MissingItemError&)
-    {
+    catch (const imebra::MissingItemError &) {
         // We arrive here if the payload we request above does not exist.
     }
 }
+
+
+static imebra::PresentationContexts presentationContexts;
+static std::set<imebra::AssociationBase *> activeAssociations;
+static std::mutex lockActiveAssociations; // Lock the access to the associations set.
+
+///
+/// \brief When a DIMSE connection is received then this method is executed in a
+///        separate thread and continues until the connection is closed, either
+///        on the remote or on the local side.
+///
+/// \param tcpStream the tcp stream for the TCP connection
+/// \param aet       the SCP aet to communicate during the ACSE negotiation
+///
+//////////////////////////////////////////////////////////////////////////////////////
+void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcmSaveDirectory) {
+
+    std::list<imebra::DataSet> cPayLoadQueue;
+
+
+    try {
+        // tcpStream represents the connected socket. Allocate a stream reader and a writer
+        // to read and write on the connected socket
+        imebra::StreamReader readSCU(tcpStream.getStreamInput());
+        imebra::StreamWriter writeSCU(tcpStream.getStreamOutput());
+
+        // The AssociationSCP constructor will negotiate the assocation
+        imebra::AssociationSCP scp(aet, 1, 1, presentationContexts, readSCU, writeSCU, 0, 10);
+
+        {
+            std::lock_guard<std::mutex> lock(lockActiveAssociations);
+            activeAssociations.insert(&scp);
+        }
+
+        try {
+            // Receive commands via the dimse service, which uses the scp association
+            imebra::DimseService dimse(scp);
+
+            // Receive commands until the association is closed
+            for (;;) {
+                // Blocks until a command is received, throws EOF when the connection
+                // is closed.
+                imebra::DimseCommand command(dimse.getCommand());
+
+                // Act accordingly to the type of the received command
+                switch (command.getCommandType()) {
+                    case imebra::dimseCommandType_t::cStore:
+                        // Received a CSTORE command
+                        ////////////////////////////
+                    {
+
+                        imebra::CStoreCommand cstore = command.getAsCStoreCommand(); // Convert to cstore to retrieve cstore-specific data
+                        imebra::DataSet payload = cstore.getPayloadDataSet();
+                        cPayLoadQueue.push_back(payload);
+                        dimse.sendCommandOrResponse(imebra::CStoreResponse(cstore, imebra::dimseStatusCode_t::success));
+                    }
+                        break;
+
+                    case imebra::dimseCommandType_t::cEcho:
+                        // Received a CECHO command
+                        ////////////////////////////
+                    {
+
+                        imebra::CEchoCommand cecho = command.getAsCEchoCommand(); // Convert to cmove to retrieve cecho-specific data
+
+                        // Respond with an error
+                        dimse.sendCommandOrResponse(imebra::CEchoResponse(cecho, imebra::dimseStatusCode_t::success));
+                    }
+                        break;
+                    default:
+                        // Received other  command, 不处理
+                        ////////////////////////////
+                    {
+                        std::wcout << L"Wrong command received" << std::endl;
+                    }
+                        break;
+
+                }
+            }
+        }
+        catch (const imebra::StreamEOFError &) {
+            // The association has been closed during the association
+        }
+        catch (const std::exception &e) {
+            std::wcout << L"错误：" << e.what() << std::endl;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(lockActiveAssociations);
+            activeAssociations.erase(&scp);
+        }
+
+    }
+    catch (const imebra::StreamEOFError &) {
+
+    }
+    catch (const std::exception &e) {
+        std::wcout << e.what() << std::endl;
+    }
+
+    //////////////////////////////////////////////
+    //-----------消息队列
+    //////////////////////////////////////////////
+
+    std::set<DcmInfo> dicomMessages;
+    std::list<imebra::DataSet>::iterator it = cPayLoadQueue.begin();
+    for (; it != cPayLoadQueue.end(); it++) {
+        onCStoreCallback(dicomMessages, *it, dcmSaveDirectory);
+    }
+    //---这个东西早掉释放，开业多余点内存
+    cPayLoadQueue.clear();
+
+    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(cLoop);
+    DicomMessageHandler jpHandler(cLoop);
+    AMQP::Address jpAddr(MQ_ADDRESS);
+    AMQP::TcpConnection jpConn(&jpHandler, jpAddr);
+    AMQP::TcpChannel channel(&jpConn);
+    channel.startTransaction();
+    for (DcmInfo cmsg: dicomMessages) {
+        AMQP::Envelope envelope(cmsg.getSopInstUid().data(), cmsg.getSopInstUid().size());
+        cmsg.fill(envelope);
+        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, envelope);
+    }
+    channel.commitTransaction().onSuccess([&dicomMessages]() {
+        std::wcout << L"批量提交消息：" << dicomMessages.size() << L"条成功" << std::endl;
+    }).onError([&dicomMessages, &channel](const char *msg) {
+        std::wcout << L"批量提交消息：" << dicomMessages.size() << L"条失败,执行回滚操作" << std::endl;
+        channel.rollbackTransaction();
+    }).onFinalize([&channel, &dicomMessages]() {
+        std::wcout << L"批量提交完毕，执行资源清理" << std::endl;
+        dicomMessages.clear();
+        channel.close();
+    });
+    uv_run(cLoop, UV_RUN_DEFAULT);
+    uv_loop_close(cLoop);
+    free(cLoop);
+}
+
 
 #endif //IMEBRA_SCPDEFINE_H
