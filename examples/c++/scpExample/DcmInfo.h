@@ -14,23 +14,24 @@ class DcmInfo {
 public:
     DcmInfo(const imebra::DataSet &payload);
 
-    //-------禁止COPY
     DcmInfo(const DcmInfo &that);
 
-    DcmInfo &operator=(const DcmInfo &that) = delete;
+    DcmInfo &operator=(const DcmInfo &a) = default;
 
     /**
      *  Destructor
      */
     virtual ~DcmInfo() noexcept;
 
-    std::string getSopInstUid();
+
 
     std::string getPatientId();
 
     std::string getStudyUid();
 
     std::string getSeriesUid();
+
+    std::string getSopInstUid();
 
     std::string getThickness();
 
@@ -40,7 +41,7 @@ public:
 
     std::shared_ptr<AMQP::Envelope> createMessage();
 
-    bool operator<(const DcmInfo& rhs) const ;
+    bool operator<(const DcmInfo &rhs) const;
 
 private:
 
@@ -51,7 +52,6 @@ private:
     std::string mThickness;
     std::string mModality;
     std::string mExamPart;
-
 
 
 };

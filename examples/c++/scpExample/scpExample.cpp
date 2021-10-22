@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     try {
         // Check the number of received arguments
         if (argc < 4) {
-            std::wcout << L"用法: scpExample port AET  dcmSaveDirectory" << std::endl;
+            std::wcout << L"Usage: scpExample port AET  dcmSaveDirectory" << std::endl;
             return 1;
         }
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 
 
         if (access(savedDirectory.c_str(), F_OK | R_OK | W_OK) != 0) {
-            std::wcout << "DICOM 文件存放目录： " << argv[3] << " 不存在或是无操作权限" << std::endl;
+            std::wcout << "DICOM Saved Directory： " << argv[3] << " Not Exists  or  Deny Access !" << std::endl;
             return 0;
         }
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
             setupRabbitRuntime(loop);
             uv_loop_close(loop);
             free(loop);
-            std::wcout << L"初始化消息队列完毕" << std::endl;
+            std::wcout << L"Init RabbitMQ  Exchange And  Queue  Over !" << std::endl;
         });
 
         // Create a listening socket bound to the port in the first argument
@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
 
 
         loopThrea.join();
-        std::wcout << L"DicomCStoreSCP 服务 is listening on port: " << port.c_str()
+        std::wcout << L"DicomCStoreSCP Service  is listening on port: " << port.c_str()
                    << L", AE： " << aet.c_str()
                    << L", Save To：" << savedDirectory.c_str()
                    << std::endl;
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
 
     }
     catch (const std::exception &e) {
-        std::wcout << L"出现错误: " << e.what() << std::endl;
+        std::wcout << L"Error: " << e.what() << std::endl;
 
         return 1;
     }

@@ -74,11 +74,11 @@ DcmInfo::DcmInfo(const DcmInfo &that) :
 }
 
 bool DcmInfo::operator<(const DcmInfo &rhs) const {
-    return  this->mSopInstUid < rhs.mSopInstUid;
+    return this->mSopInstUid < rhs.mSopInstUid;
 }
 
 std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage() {
-    std::shared_ptr<AMQP::Envelope>  ptr=std::make_shared<AMQP::Envelope>(mSopInstUid.data(), mSopInstUid.size());
+    std::shared_ptr<AMQP::Envelope> ptr = std::make_shared<AMQP::Envelope>(mSopInstUid.data(), mSopInstUid.size());
 
     ptr.get()->setDeliveryMode(2);
     ptr.get()->setContentEncoding("utf-8");
@@ -90,6 +90,8 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage() {
     messageHeaders["BodyPartExamined"] = mExamPart;
     ptr.get()->setHeaders(messageHeaders);
 
-    return  ptr;
+    return ptr;
 }
+
+
 

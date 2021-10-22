@@ -19,7 +19,7 @@ private:
      */
     virtual void onError(AMQP::TcpConnection *connection, const char *message) override
     {
-        std::wcout << L"error: " << message << std::endl;
+        std::wcout <<  L"Connect To RabbitMQ Server Error："  << message << std::endl;
     }
 
     /**
@@ -28,7 +28,7 @@ private:
      */
     virtual void onConnected(AMQP::TcpConnection *connection) override
     {
-        std::wcout << L"connected" << std::endl;
+        std::wcout << L"Connect To RabbitMQ Server  Sucess " << std::endl;
     }
 
 

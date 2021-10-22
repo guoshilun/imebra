@@ -255,14 +255,68 @@ const size_t ONE_MINITE = 60 * 1000;
 
 void setupRabbitRuntime(uv_loop_s *const loop) {
 
-    std::wstring SUCCESS(L" 成功");
-    std::wstring FAILED(L" 失败:");
+    const char *SUCCESS(" Success");
+    const char *FAILED(" Failed:");
+    const char *CreateExchange("create Exchange :");
+    const char *CreateQueue("create Queue :");
+    const char *BindQueue("bind Queue :");
+    const char *ClearResource("clear Resource ");
+
+
+
     DicomMessageHandler mqHandler(loop);
     AMQP::Address mqAddres(MQ_ADDRESS);
     AMQP::TcpConnection mqConn(&mqHandler, mqAddres);
     AMQP::TcpChannel mqPtr(&mqConn);
 
     AMQP::TcpChannel deadChannel(&mqConn);
+
+    //////////////////////////////////////////////////
+    //////创建DICOM 收图消息队列
+    //////////////////////////////////////////////////////
+    std::once_flag onceFlag;
+   auto createDicomExchangeAndQueue = [&]{
+       AMQP::Table arguments;
+       arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
+       arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
+       //  消息过期时间为60 分钟
+       arguments["x-message-ttl"] = 60 * ONE_MINITE;
+       mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
+               .onSuccess([&]() {
+                   //by now the exchange is created
+                   std::wcout << CreateExchange << MQ_EXCHANG << SUCCESS << std::endl;
+               })
+               .onError([&](const char *message) {
+                   //something went wrong creating the exchange
+                   std::wcout << CreateExchange << MQ_EXCHANG << FAILED << message << std::endl;
+               });
+
+       mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
+               .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                   std::wcout << CreateQueue << name.c_str() << SUCCESS << std::endl;
+               })
+               .onError([&](const char *message) {
+                   // none of the messages were published
+                   // now we have to do it all over again
+                   std::wcout << CreateQueue << MQ_QUEUE << FAILED << message << std::endl;
+               });
+       mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
+           std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << SUCCESS << std::endl;
+
+       }).onError([&](const char *message) {
+           std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << FAILED << message << std::endl;
+       }).onFinalize([&]() {
+           std::wcout << L"Dicom TcpChannel " << ClearResource << std::endl;
+           std::wcout << L"Create Dicom Exchange And Queue End" << std::endl;
+           std::call_once(onceFlag,  uv_stop,loop);
+       });
+
+   };
+
+
+
+
+
 
     //-----------创建相关的消息队列
     ///-----------------创建死信消息队列
@@ -274,75 +328,36 @@ void setupRabbitRuntime(uv_loop_s *const loop) {
     deadChannel.declareExchange(DEAD_EXCAHGE, AMQP::fanout, AMQP::durable)
             .onSuccess([&]() {
                 //by now the exchange is created
-                std::wcout << L"创建死信交换机 :" << DEAD_EXCAHGE << SUCCESS << std::endl;
+                std::wcout << CreateExchange << DEAD_EXCAHGE << SUCCESS << std::endl;
             })
             .onError([&](const char *message) {
                 //something went wrong creating the exchange
-                std::wcout << L"创建死信交换机 :" << DEAD_EXCAHGE << FAILED << message << std::endl;
+                std::wcout << CreateExchange << DEAD_EXCAHGE << FAILED << message << std::endl;
             });
     deadChannel.declareQueue(DEAD_QUEUE, AMQP::durable, deadArguments)
             .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
-                std::wcout << L"创建死信队列 :" << name.c_str() << SUCCESS << std::endl;
+                std::wcout << CreateQueue << name.c_str() << SUCCESS << std::endl;
             })
             .onError([&](const char *message) {
                 // none of the messages were published
                 // now we have to do it all over again
-                std::wcout << L"创建死信队列 :" << DEAD_QUEUE << FAILED << message << std::endl;
+                std::wcout << CreateQueue << DEAD_QUEUE << FAILED << message << std::endl;
             });
-    deadChannel.bindQueue(DEAD_EXCAHGE, DEAD_QUEUE, DEAD_ROUTING_KEY).onSuccess(
-                    [&]() {
-                        //by now the exchange is created
-                        std::wcout << L"创建死信队列 :" << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << SUCCESS
-                                   << std::endl;
-                    })
-            .onError([&](const char *message) {
-                // none of the messages were published
-                // now we have to do it all over again
-                std::wcout << L"创建死信队列 :" << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << FAILED << message << std::endl;
-            }).onFinalize([&deadChannel]() {
-                std::wcout << L"死信TcpChannel 资源回收" << std::endl;
-                deadChannel.close();
-            });
-
-
-
-    //////////////////////////////////////////////////
-    //////创建DICOM 收图消息队列
-    //////////////////////////////////////////////////////
-
-    AMQP::Table arguments;
-    arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
-    arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-    //  消息过期时间为60 分钟
-    arguments["x-message-ttl"] = 60 * ONE_MINITE;
-    mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
+    deadChannel.bindQueue(DEAD_EXCAHGE, DEAD_QUEUE, DEAD_ROUTING_KEY)
             .onSuccess([&]() {
-                //by now the exchange is created
-                std::wcout << L"创建DICOM收图交换机:" << MQ_EXCHANG << SUCCESS << std::endl;
-            })
-
-            .onError([&](const char *message) {
-                //something went wrong creating the exchange
-                std::wcout << L"创建DICOM收图交换机:" << MQ_EXCHANG << FAILED << message << std::endl;
-            });
-    mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
-            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
-                std::wcout << L"创建DICOM收图队列:" << name.c_str() << SUCCESS << std::endl;
+                std::wcout << BindQueue << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << SUCCESS << std::endl;
             })
             .onError([&](const char *message) {
                 // none of the messages were published
                 // now we have to do it all over again
-                std::wcout << L"创建DICOM收图队列:" << MQ_QUEUE << FAILED << message << std::endl;
+                std::wcout << BindQueue << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << FAILED << message << std::endl;
+            }).onFinalize([&]() {
+                std::wcout << L"Dead TcpChannel " << ClearResource << std::endl;
+                std::wcout << L"Create Dicom Exchange And Queue Begin"  << std::endl;
+                createDicomExchangeAndQueue();
+
             });
-    mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
-        std::wcout << L"绑定收图队列:" << MQ_QUEUE << " TO:" << MQ_EXCHANG << SUCCESS << std::endl;
-        uv_stop(loop);
-    }).onError([&](const char *message) {
-        std::wcout << L"绑定收图队列:" << MQ_QUEUE << " TO:" << MQ_EXCHANG << FAILED << message << std::endl;
-    }).onFinalize([&loop, &mqPtr]() {
-        std::wcout << L"收图TcpChannel 资源回收" << std::endl;
-        mqPtr.close();
-    });
+   // std::call_once(onceFlag, wating);
     uv_run(loop, UV_RUN_DEFAULT);
 }
 
@@ -589,19 +604,20 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
     AMQP::TcpChannel channel(&jpConn);
     channel.startTransaction();
     for (DcmInfo cmsg: dicomMessages) {
-        std::shared_ptr<AMQP::Envelope> envelope= cmsg
-                .createMessage();
+        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage();
         channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
     }
     channel.commitTransaction().onSuccess([&dicomMessages]() {
-        std::wcout << L"批量提交消息：" << dicomMessages.size() << L"条成功" << std::endl;
+        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Success" << std::endl;
     }).onError([&dicomMessages, &channel](const char *msg) {
-        std::wcout << L"批量提交消息：" << dicomMessages.size() << L"条失败,执行回滚操作" << std::endl;
+        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Failed,And Execute Rollback "
+                   << std::endl;
         channel.rollbackTransaction();
-    }).onFinalize([&channel, &dicomMessages]() {
-        std::wcout << L"批量提交完毕，执行资源清理" << std::endl;
+    }).onFinalize([&channel, &dicomMessages, &cLoop]() {
+        std::wcout << L"Commit   Rabbit Messages  Over ，Clear Resource " << std::endl;
         dicomMessages.clear();
         channel.close();
+        uv_stop(cLoop);
     });
     uv_run(cLoop, UV_RUN_DEFAULT);
     uv_loop_close(cLoop);

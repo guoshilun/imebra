@@ -891,7 +891,7 @@ namespace imebra {
                                     const std::string charset(charsetsHandler->getString(componentId));
                                     SpecCharset<< charset.c_str() ;
                                 }
-                                std::cout << "Charset si :" <<  SpecCharset.str() << std::endl;
+
                                 std::string  charsetDcmName =SpecCharset.str();
                                 SpecCharset.clear();
                                 try{
