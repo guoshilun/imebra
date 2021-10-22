@@ -38,7 +38,7 @@ public:
 
     std::string getExamPart();
 
-    void fill(AMQP::Envelope &envelope);
+    std::shared_ptr<AMQP::Envelope> createMessage();
 
     bool operator<(const DcmInfo& rhs) const ;
 

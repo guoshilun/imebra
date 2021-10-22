@@ -589,9 +589,9 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
     AMQP::TcpChannel channel(&jpConn);
     channel.startTransaction();
     for (DcmInfo cmsg: dicomMessages) {
-        AMQP::Envelope envelope(cmsg.getSopInstUid().data(), cmsg.getSopInstUid().size());
-        cmsg.fill(envelope);
-        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, envelope);
+        std::shared_ptr<AMQP::Envelope> envelope= cmsg
+                .createMessage();
+        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
     }
     channel.commitTransaction().onSuccess([&dicomMessages]() {
         std::wcout << L"批量提交消息：" << dicomMessages.size() << L"条成功" << std::endl;

@@ -62,20 +62,6 @@ std::string DcmInfo::getStudyUid() {
     return mStudyUid;
 }
 
-void DcmInfo::fill(AMQP::Envelope &messageEnv) {
-
-    // AMQP::Envelope messageEnv(sopInstUid.data(), sopInstUid.size());
-    messageEnv.setDeliveryMode(2);
-    messageEnv.setContentEncoding("utf-8");
-    messageEnv.setContentType("text/plain");
-    AMQP::Table messageHeaders;
-    //消息头
-    messageHeaders["Modality"] = mModality;
-    messageHeaders["Thickness"] = mThickness;
-    messageHeaders["BodyPartExamined"] = mExamPart;
-    messageEnv.setHeaders(messageHeaders);
-
-}
 
 DcmInfo::DcmInfo(const DcmInfo &that) :
         mSopInstUid(that.mSopInstUid),
@@ -89,5 +75,21 @@ DcmInfo::DcmInfo(const DcmInfo &that) :
 
 bool DcmInfo::operator<(const DcmInfo &rhs) const {
     return  this->mSopInstUid < rhs.mSopInstUid;
+}
+
+std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage() {
+    std::shared_ptr<AMQP::Envelope>  ptr=std::make_shared<AMQP::Envelope>(mSopInstUid.data(), mSopInstUid.size());
+
+    ptr.get()->setDeliveryMode(2);
+    ptr.get()->setContentEncoding("utf-8");
+    ptr.get()->setContentType("text/plain");
+    AMQP::Table messageHeaders;
+    //消息头
+    messageHeaders["Modality"] = mModality;
+    messageHeaders["Thickness"] = mThickness;
+    messageHeaders["BodyPartExamined"] = mExamPart;
+    ptr.get()->setHeaders(messageHeaders);
+
+    return  ptr;
 }
 
