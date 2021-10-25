@@ -25,7 +25,7 @@
 #include  <unistd.h>
 #include <condition_variable>
 #include "scpDefine.h"
-
+#include "SetupRabbitRuntime.h"
 
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
