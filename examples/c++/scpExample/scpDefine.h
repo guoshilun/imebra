@@ -260,7 +260,7 @@ const size_t ONE_MINITE = 60 * 1000;
 
 void setupRabbitRuntime() {
 
-    std::wcout <<L"setupRabbitRuntime  Begin ！" <<std::endl;
+    std::wcout << L"setupRabbitRuntime  Begin ！" << std::endl;
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
@@ -371,7 +371,7 @@ void setupRabbitRuntime() {
     uv_run(loop, UV_RUN_DEFAULT);
     uv_loop_close(loop);
     free(loop);
-    std::wcout <<L"setupRabbitRuntime  End ！" <<std::endl;
+    std::wcout << L"setupRabbitRuntime  End ！" << std::endl;
 
 
 }
@@ -431,6 +431,35 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     messages.insert(dcmInfo);
 }
 
+void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
+    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(cLoop);
+    DicomMessageHandler jpHandler(cLoop);
+    AMQP::Address jpAddr(MQ_ADDRESS);
+    AMQP::TcpConnection jpConn(&jpHandler, jpAddr);
+    AMQP::TcpChannel channel(&jpConn);
+    channel.startTransaction();
+    for (DcmInfo cmsg: dicomMessages) {
+        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage();
+        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
+    }
+    channel.commitTransaction().onSuccess([&dicomMessages]() {
+        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Success" << std::endl;
+    }).onError([&dicomMessages, &channel](const char *msg) {
+        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Failed,And Execute Rollback "
+                   << std::endl;
+        channel.rollbackTransaction();
+    }).onFinalize([&channel, &dicomMessages, &cLoop]() {
+        std::wcout << L"Commit   Rabbit Messages  Over ，Clear Resource " << std::endl;
+        dicomMessages.clear();
+        channel.close();
+        uv_stop(cLoop);
+    });
+    uv_run(cLoop, UV_RUN_DEFAULT);
+    uv_loop_close(cLoop);
+    free(cLoop);
+
+}
 
 void outputDatasetTags(const imebra::DataSet &dataset, const std::wstring &prefix) {
     // Get all the tags
@@ -613,44 +642,19 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
         std::wcout << e.what() << std::endl;
     }
 
-    //////////////////////////////////////////////
-    //-----------消息队列
-    //////////////////////////////////////////////
 
+
+    //---写入磁盘，并填充消息体
     std::set<DcmInfo> dicomMessages;
     std::list<imebra::DataSet>::iterator it = cPayLoadQueue.begin();
     for (; it != cPayLoadQueue.end(); it++) {
         onCStoreCallback(dicomMessages, *it, dcmSaveDirectory);
     }
-    //---这个东西早掉释放，开业多余点内存
+    //---这个东西早掉释放，可以多余点内存
     cPayLoadQueue.clear();
+    //----推送相关记录到消息队列
+    onMessageCallback(dicomMessages);
 
-    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
-    uv_loop_init(cLoop);
-    DicomMessageHandler jpHandler(cLoop);
-    AMQP::Address jpAddr(MQ_ADDRESS);
-    AMQP::TcpConnection jpConn(&jpHandler, jpAddr);
-    AMQP::TcpChannel channel(&jpConn);
-    channel.startTransaction();
-    for (DcmInfo cmsg: dicomMessages) {
-        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage();
-        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
-    }
-    channel.commitTransaction().onSuccess([&dicomMessages]() {
-        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Success" << std::endl;
-    }).onError([&dicomMessages, &channel](const char *msg) {
-        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Failed,And Execute Rollback "
-                   << std::endl;
-        channel.rollbackTransaction();
-    }).onFinalize([&channel, &dicomMessages, &cLoop]() {
-        std::wcout << L"Commit   Rabbit Messages  Over ，Clear Resource " << std::endl;
-        dicomMessages.clear();
-        channel.close();
-        uv_stop(cLoop);
-    });
-    uv_run(cLoop, UV_RUN_DEFAULT);
-    uv_loop_close(cLoop);
-    free(cLoop);
 }
 
 
