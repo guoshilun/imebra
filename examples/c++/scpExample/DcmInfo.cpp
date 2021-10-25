@@ -93,5 +93,15 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage() {
     return ptr;
 }
 
-
+//DcmInfo &DcmInfo::operator=(const DcmInfo &a) {
+//    this->mSopInstUid = (a.mSopInstUid);
+//    this->mExamPart = a.mExamPart;
+//    this->mModality = a.mModality;
+//    this->mThickness = a.mThickness;
+//    this->mSeriesUid = a.mSeriesUid;
+//    this->mStudyUid = a.mStudyUid;
+//    this->mPatientId = a.mPatientId;
+//    return *this;
+//}
+//
 

@@ -82,11 +82,9 @@ int main(int argc, char *argv[]) {
 
 
         std::thread loopThrea([&]() {
-            uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
-            uv_loop_init(loop);
-            setupRabbitRuntime(loop);
-            uv_loop_close(loop);
-            free(loop);
+
+            setupRabbitRuntime( );
+
             std::wcout << L"Init RabbitMQ  Exchange And  Queue  Over !" << std::endl;
         });
 

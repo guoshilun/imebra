@@ -14,9 +14,14 @@ class DcmInfo {
 public:
     DcmInfo(const imebra::DataSet &payload);
 
+    ///拷贝构造函数
     DcmInfo(const DcmInfo &that);
 
-    DcmInfo &operator=(const DcmInfo &a) = default;
+    //移动构造函数
+    DcmInfo(DcmInfo&&) noexcept =delete;
+
+    ////赋值符重载 -- 默认调用 拷贝构造函数
+    DcmInfo &operator=(const DcmInfo &a) = default ;
 
     /**
      *  Destructor

@@ -5,11 +5,16 @@
 #ifndef IMEBRA_SCPDEFINE_H
 #define IMEBRA_SCPDEFINE_H
 
-
+#include <string>       // std::string
+#include <iostream>     // std::cout
+#include <sstream>      // std::stringstream, std
 #include <imebra/imebra.h>
 #include <uv.h>
 #include "DicomMessageHandler.h"
 #include "DcmInfo.h"
+#include "unistd.h"
+#include <sys/stat.h>
+
 
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
@@ -253,7 +258,12 @@ const char *DEAD_ROUTING_KEY = "DICOM.dead";
 // 1分钟
 const size_t ONE_MINITE = 60 * 1000;
 
-void setupRabbitRuntime(uv_loop_s *const loop) {
+void setupRabbitRuntime() {
+
+    std::wcout <<L"setupRabbitRuntime  Begin ！" <<std::endl;
+    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(loop);
+
 
     const char *SUCCESS(" Success");
     const char *FAILED(" Failed:");
@@ -263,55 +273,54 @@ void setupRabbitRuntime(uv_loop_s *const loop) {
     const char *ClearResource("clear Resource ");
 
 
-
     DicomMessageHandler mqHandler(loop);
     AMQP::Address mqAddres(MQ_ADDRESS);
     AMQP::TcpConnection mqConn(&mqHandler, mqAddres);
-    AMQP::TcpChannel mqPtr(&mqConn);
-
     AMQP::TcpChannel deadChannel(&mqConn);
 
     //////////////////////////////////////////////////
     //////创建DICOM 收图消息队列
     //////////////////////////////////////////////////////
     std::once_flag onceFlag;
-   auto createDicomExchangeAndQueue = [&]{
-       AMQP::Table arguments;
-       arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
-       arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-       //  消息过期时间为60 分钟
-       arguments["x-message-ttl"] = 60 * ONE_MINITE;
-       mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
-               .onSuccess([&]() {
-                   //by now the exchange is created
-                   std::wcout << CreateExchange << MQ_EXCHANG << SUCCESS << std::endl;
-               })
-               .onError([&](const char *message) {
-                   //something went wrong creating the exchange
-                   std::wcout << CreateExchange << MQ_EXCHANG << FAILED << message << std::endl;
-               });
+    auto createDicomExchangeAndQueue = [&] {
 
-       mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
-               .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
-                   std::wcout << CreateQueue << name.c_str() << SUCCESS << std::endl;
-               })
-               .onError([&](const char *message) {
-                   // none of the messages were published
-                   // now we have to do it all over again
-                   std::wcout << CreateQueue << MQ_QUEUE << FAILED << message << std::endl;
-               });
-       mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
-           std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << SUCCESS << std::endl;
+        AMQP::TcpChannel mqPtr(&mqConn);
+        AMQP::Table arguments;
+        arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
+        arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
+        //  消息过期时间为60 分钟
+        arguments["x-message-ttl"] = 60 * ONE_MINITE;
+        mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
+                .onSuccess([&]() {
+                    //by now the exchange is created
+                    std::wcout << CreateExchange << MQ_EXCHANG << SUCCESS << std::endl;
+                })
+                .onError([&](const char *message) {
+                    //something went wrong creating the exchange
+                    std::wcout << CreateExchange << MQ_EXCHANG << FAILED << message << std::endl;
+                });
 
-       }).onError([&](const char *message) {
-           std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << FAILED << message << std::endl;
-       }).onFinalize([&]() {
-           std::wcout << L"Dicom TcpChannel " << ClearResource << std::endl;
-           std::wcout << L"Create Dicom Exchange And Queue End" << std::endl;
-           std::call_once(onceFlag,  uv_stop,loop);
-       });
+        mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
+                .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                    std::wcout << CreateQueue << name.c_str() << SUCCESS << std::endl;
+                })
+                .onError([&](const char *message) {
+                    // none of the messages were published
+                    // now we have to do it all over again
+                    std::wcout << CreateQueue << MQ_QUEUE << FAILED << message << std::endl;
+                });
+        mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
+            std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << SUCCESS << std::endl;
 
-   };
+        }).onError([&](const char *message) {
+            std::wcout << BindQueue << MQ_QUEUE << " TO:" << MQ_EXCHANG << FAILED << message << std::endl;
+        }).onFinalize([&]() {
+            std::wcout << L"Dicom TcpChannel " << ClearResource << std::endl;
+            std::wcout << L"Create Dicom Exchange And Queue End" << std::endl;
+            std::call_once(onceFlag, uv_stop, loop);
+        });
+
+    };
 
 
 
@@ -351,14 +360,20 @@ void setupRabbitRuntime(uv_loop_s *const loop) {
                 // none of the messages were published
                 // now we have to do it all over again
                 std::wcout << BindQueue << DEAD_QUEUE << " TO:" << DEAD_EXCAHGE << FAILED << message << std::endl;
+                std::call_once(onceFlag, uv_stop, loop);
+
             }).onFinalize([&]() {
                 std::wcout << L"Dead TcpChannel " << ClearResource << std::endl;
-                std::wcout << L"Create Dicom Exchange And Queue Begin"  << std::endl;
+                std::wcout << L"Create Dicom Exchange And Queue Begin" << std::endl;
                 createDicomExchangeAndQueue();
-
             });
-   // std::call_once(onceFlag, wating);
+    // std::call_once(onceFlag, wating);
     uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
+    free(loop);
+    std::wcout <<L"setupRabbitRuntime  End ！" <<std::endl;
+
+
 }
 
 
@@ -385,20 +400,34 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     std::string seriesUid = dcmInfo.getSeriesUid();
     std::string sopInstUid = dcmInfo.getSopInstUid();
     if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
+        std::wcout << L"patientId， studyUid， sereisUid or sopInstUid   not exists or empty ：["
+                   << patientId.c_str() << ","
+                   << studyUid.c_str() << ","
+                   << seriesUid.c_str() << ","
+                   << sopInstUid.c_str() << "]" << std::endl;
         return;
 
     }
-    std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
+    // std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
+
+    std::stringstream ss;
+
+    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() << "/" << seriesUid.c_str() << "/";
+    std::string saveTo = ss.str();
+    ss.clear();
 
     if (access(saveTo.c_str(), F_OK) != 0) {
-        std::wcout << saveTo.c_str() << std::endl;
-        std::string commandText("mkdir -p  \"" + saveTo + "\"");
-        std::system(commandText.c_str());
+        std::wcout << L"create Directory:" << saveTo.c_str() << std::endl;
+        std::string cmdText("mkdir -p \"" + saveTo + "\"");
+        system(cmdText.c_str());
     }
 
+    if (access(saveTo.c_str(), F_OK) != 0) {
+        std::wcout << "Access  Directory " << saveTo.c_str() << " Fobbiden !" << std::endl;
+        return;
+    }
     std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
     imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
-    //  std::wcout << L"Save DicomFile To:" << sopInstUid.c_str() << std::endl;
     messages.insert(dcmInfo);
 }
 
