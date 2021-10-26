@@ -1,5 +1,6 @@
 #include <utility>
-
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 //
 // Created by dhz on 2021/10/25.
 //
@@ -29,7 +30,16 @@ const char *ClearResource("clear Resource ");
 
 
 // 1分钟
-const size_t ONE_MINITE = 60 * 1000;
+const size_t ONE_MINUTE = 60 * 1000;
+
+const size_t ONE_HOUR = 60 * ONE_MINUTE;
+
+const size_t ONE_DAY = 24 * ONE_HOUR;
+
+// 5M
+const int max_size = 1048576 * 5;
+// 30
+const int max_files = 300;
 
 void setupRabbitRuntime() {
 
@@ -44,11 +54,11 @@ void setupRabbitRuntime() {
     AMQP::TcpChannel deadChannel(&mqConn);
 
 
-    AMQP::Table arguments;
-    arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
-    arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-    //  消息过期时间为60 分钟
-    arguments["x-message-ttl"] = 60 * ONE_MINITE;
+//    AMQP::Table arguments;
+//    arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
+//    arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
+//    //  消息过期时间为60 分钟
+//    arguments["x-message-ttl"] =  1 * ONE_DAY;
 
     //////////////////////////////////////////////////
     //////创建DICOM 收图消息队列
@@ -60,8 +70,8 @@ void setupRabbitRuntime() {
         AMQP::Table arguments;
         arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
         arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-        //  消息过期时间为60 分钟
-        arguments["x-message-ttl"] = 60 * ONE_MINITE;
+        //  消息过期时间为1天 分钟
+        arguments["x-message-ttl"] = 1 * ONE_DAY;
         mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
                 .onSuccess([&]() {
                     //by now the exchange is created
@@ -89,6 +99,7 @@ void setupRabbitRuntime() {
         }).onFinalize([&]() {
             std::wcout << L"Dicom TcpChannel " << ClearResource << std::endl;
             std::wcout << L"Create Dicom Exchange And Queue End" << std::endl;
+
             std::call_once(onceFlag, uv_stop, loop);
         });
 
@@ -101,12 +112,11 @@ void setupRabbitRuntime() {
 
     //-----------创建相关的消息队列
     ///-----------------创建死信消息队列
-    AMQP::Table
-            deadArguments;
+    AMQP::Table deadArguments;
     // 在声明队列的时候可以通过 x-message-ttl 属性来控制消息的TTL， 这个参数的单位是毫秒
     //  指定消息过期时间（毫秒），消息过期后自动删除死信消息，防止把磁盘用完！
     //  1小时过期：
-    deadArguments["x-message-ttl"] = 60 * ONE_MINITE;
+    deadArguments["x-message-ttl"] = 7 * ONE_DAY;
     deadChannel.declareExchange(DEAD_EXCAHGE, AMQP::fanout, AMQP::durable)
             .onSuccess([&]() {
                 //by now the exchange is created
@@ -161,13 +171,26 @@ void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
         channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
     }
     channel.commitTransaction().onSuccess([&dicomMessages]() {
-        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Success" << std::endl;
+        spdlog::info("Commit   Rabbit Messages：{}  with {}", dicomMessages.size(), SUCCESS);
     }).onError([&dicomMessages, &channel](const char *msg) {
-        std::wcout << L"Commit   Rabbit Messages：" << dicomMessages.size() << L",Failed,And Execute Rollback "
-                   << std::endl;
+        spdlog::error("Commit   Rabbit Messages：{} with {}", dicomMessages.size(), msg);
         channel.rollbackTransaction();
+        try {
+            auto logger = spdlog::rotating_logger_mt("mq", "mq/message.txt", max_size, max_files);
+            logger->set_pattern("%v");
+            logger->set_level(spdlog::level::level_enum::info);
+            for (DcmInfo cmsg: dicomMessages) {
+                std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage();
+                logger->info("pid={},suid={},ssuid={},sopuid={}", cmsg.getPatientId(), cmsg.getStudyUid(),
+                             cmsg.getSeriesUid(), cmsg.getSopInstUid());
+            }
+            logger->flush();
+        } catch (const spdlog::spdlog_ex &) {
+        }
+
+
     }).onFinalize([&channel, &dicomMessages, &cLoop]() {
-        std::wcout << L"Commit   Rabbit Messages  Over ，Clear Resource " << std::endl;
+        spdlog::warn("Commit   Rabbit Messages  Over ，Clear Resource ");
         dicomMessages.clear();
         channel.close();
         uv_stop(cLoop);

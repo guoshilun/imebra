@@ -15,7 +15,7 @@
 #include "SetupRabbitRuntime.h"
 #include "unistd.h"
 #include <sys/stat.h>
-
+#include <spdlog/spdlog.h>
 
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
@@ -264,11 +264,9 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     std::string seriesUid = dcmInfo.getSeriesUid();
     std::string sopInstUid = dcmInfo.getSopInstUid();
     if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
-        std::wcout << L"patientId， studyUid， sereisUid or sopInstUid   not exists or empty ：["
-                   << patientId.c_str() << ","
-                   << studyUid.c_str() << ","
-                   << seriesUid.c_str() << ","
-                   << sopInstUid.c_str() << "]" << std::endl;
+        spdlog::error(
+                "patientId， studyUid， sereisUid or sopInstUid   not exists or one of those are empty:[{},{},{},{}]",
+                patientId, studyUid, seriesUid, sopInstUid);
         return;
 
     }
@@ -281,13 +279,13 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     ss.clear();
 
     if (access(saveTo.c_str(), F_OK) != 0) {
-        std::wcout << L"create Directory:" << saveTo.c_str() << std::endl;
         std::string cmdText("mkdir -p \"" + saveTo + "\"");
-        system(cmdText.c_str());
+        int retur =  system(cmdText.c_str());
+        spdlog::info("{} = create directory:{}", retur, saveTo);
     }
 
     if (access(saveTo.c_str(), F_OK) != 0) {
-        std::wcout << "Access  Directory " << saveTo.c_str() << " Fobbiden !" << std::endl;
+        spdlog::info("access directory:{} is not allowed ", saveTo);
         return;
     }
     std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
@@ -450,7 +448,8 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
                         // Received other  command, 不处理
                         ////////////////////////////
                     {
-                        std::wcout << L"Wrong command received" << std::endl;
+                        spdlog::error("Wrong command received ");
+
                     }
                         break;
 

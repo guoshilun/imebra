@@ -9,7 +9,6 @@
  * received command the header and payload datasets are logged to
  * the standard output.
  */
-#include <fcntl.h>
 
 
 #include <iostream>
@@ -27,11 +26,17 @@
 #include "scpDefine.h"
 #include "SetupRabbitRuntime.h"
 
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/daily_file_sink.h>
+
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
 // When the app must terminate then we abort all the active associations.
 
 using namespace std;
+
 ///
 /// \brief main
 ///
@@ -42,7 +47,7 @@ using namespace std;
 //////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
     std::ios::sync_with_stdio(false);
-    std::wcout.imbue( std::locale("") );
+    std::wcout.imbue(std::locale(""));
 
 
     try {
@@ -71,7 +76,34 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
+        bool createLog(false);
+        try {
+            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            console_sink->set_level(spdlog::level::warn);
+            console_sink->set_pattern("[%^%l%$] %v");
+            auto rotating_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>("logs/daily.txt", 2, 30, false,
+                                                                                     30);
+            rotating_sink->set_level(spdlog::level::trace);
+            rotating_sink->set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
 
+            spdlog::logger logger("multi_sink", {console_sink, rotating_sink});
+            logger.set_level(spdlog::level::debug);
+            std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
+
+            spdlog::set_default_logger(defLogger);
+            //---每隔60秒刷新一下日志
+            spdlog::flush_every(std::chrono::seconds(60));
+            spdlog::set_error_handler(
+                    [](const std::string &msg) { spdlog::get("console")->error("*** LOGGER ERROR ***: {}", msg); });
+            createLog = true;
+        }
+        catch (const spdlog::spdlog_ex &ex) {
+            std::wcout << L"Log init failed: " << ex.what() << std::endl;
+        }
+
+        if (!createLog) {
+            return 0;
+        }
 
         std::mutex cv_m;
         std::unique_lock<std::mutex> lk(cv_m);
@@ -82,12 +114,12 @@ int main(int argc, char *argv[]) {
 
 
         std::thread loopThrea([&]() {
-
-            setupRabbitRuntime( );
-
-            std::wcout << L"Init RabbitMQ  Exchange And  Queue  Over !" << std::endl;
+            setupRabbitRuntime();
+            spdlog::warn("Init RabbitMQ  Exchange And  Queue  Over ");
+            //std::wcout << L"Init RabbitMQ  Exchange And  Queue  Over !" << std::endl;
         });
 
+        loopThrea.join();
         // Create a listening socket bound to the port in the first argument
         imebra::TCPPassiveAddress listeningAddress("", port);
         imebra::TCPListener listenForConnections(listeningAddress);
@@ -129,16 +161,16 @@ int main(int argc, char *argv[]) {
                 });
 
 
-        loopThrea.join();
-        std::wcout << L"DicomCStoreSCP Service  is listening on port: " << port.c_str()
-                   << L", AE： " << aet.c_str()
-                   << L", Save To：" << savedDirectory.c_str()
-                   << std::endl;
+      //  loopThrea.join();
+        spdlog::warn("DicomCStoreSCP Service  is listening on {}@{}, Storage Directory is:{}", port, aet,
+                     savedDirectory);
+
         cv.wait(lk, [] { return false; });
 
         // Terminate the listening socket: will cause the listening thread to exit
         listenForConnections.terminate();
         listeningThread.join();
+
         return 0;
 
     }
