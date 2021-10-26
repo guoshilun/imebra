@@ -54,12 +54,6 @@ void setupRabbitRuntime() {
     AMQP::TcpChannel deadChannel(&mqConn);
 
 
-//    AMQP::Table arguments;
-//    arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
-//    arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-//    //  消息过期时间为60 分钟
-//    arguments["x-message-ttl"] =  1 * ONE_DAY;
-
     //////////////////////////////////////////////////
     //////创建DICOM 收图消息队列
     //////////////////////////////////////////////////////
@@ -188,9 +182,8 @@ void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
         } catch (const spdlog::spdlog_ex &) {
         }
 
-
     }).onFinalize([&channel, &dicomMessages, &cLoop]() {
-        spdlog::warn("Commit   Rabbit Messages  Over ，Clear Resource ");
+        spdlog::debug("Commit   Rabbit Messages  Over ，Clear Resource ");
         dicomMessages.clear();
         channel.close();
         uv_stop(cLoop);

@@ -30,6 +30,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/daily_file_sink.h>
+#include <spdlog/async_logger.h>
+#include <spdlog/async.h>
 
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
@@ -78,17 +80,37 @@ int main(int argc, char *argv[]) {
 
         bool createLog(false);
         try {
-            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            console_sink->set_level(spdlog::level::warn);
-            console_sink->set_pattern("[%^%l%$] %v");
+            //低于设置级别的日志将不会被输出。各level排序，数值越大级别越高：
+            //    trace =  0,
+            //    debug =1,
+            //    info = 2,
+            //    warn = 3,
+            //    err = 4,
+            //    critical = 5,
+            //    off = 6,
+            //    n_levels=7
+            spdlog::init_thread_pool(8192, 1);
+            auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            stdout_sink->set_level(spdlog::level::debug);
+            stdout_sink->set_pattern("[%^%l%$] %v");
             auto rotating_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>("logs/daily.txt", 2, 30, false,
                                                                                      30);
             rotating_sink->set_level(spdlog::level::trace);
             rotating_sink->set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
 
-            spdlog::logger logger("multi_sink", {console_sink, rotating_sink});
-            logger.set_level(spdlog::level::debug);
-            std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
+
+            std::vector<spdlog::sink_ptr> sinks{stdout_sink, rotating_sink};
+            auto defLogger = std::make_shared<spdlog::async_logger>("loggername", sinks.begin(), sinks.end(),
+                                                                    spdlog::thread_pool(),
+                                                                    spdlog::async_overflow_policy::block);
+            spdlog::register_logger(defLogger);
+
+
+
+
+//            spdlog::logger logger("multi_sink", {stdout_sink, rotating_sink});
+//            logger.set_level(spdlog::level::debug);
+//           std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
 
             spdlog::set_default_logger(defLogger);
             //---每隔60秒刷新一下日志
@@ -161,8 +183,8 @@ int main(int argc, char *argv[]) {
                 });
 
 
-      //  loopThrea.join();
-        spdlog::warn("DicomCStoreSCP Service  is listening on {}@{}, Storage Directory is:{}", port, aet,
+        //  loopThrea.join();
+        spdlog::debug("DicomCStoreSCP Service  is listening on {}@{}, Storage Directory is:{}", port, aet,
                      savedDirectory);
 
         cv.wait(lk, [] { return false; });
