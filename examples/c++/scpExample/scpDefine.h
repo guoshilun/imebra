@@ -16,7 +16,7 @@
 #include "unistd.h"
 #include <sys/stat.h>
 #include <spdlog/spdlog.h>
-
+#include "scpConstant.h"
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
         //  用于支持CEcho SCP 的传输语法

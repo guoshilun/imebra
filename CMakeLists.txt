@@ -439,7 +439,7 @@ if (NOT IOS)
     # Add the source files to the project
     #------------------------------------
 
-    add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/SetupRabbitRuntime.h)
+    add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/SetupRabbitRuntime.h examples/c++/scpExample/scpConstant.h)
     target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp)
 
 endif ()
