@@ -216,7 +216,7 @@ void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
     uv_run(cLoop, UV_RUN_DEFAULT);
     uv_loop_close(cLoop);
     free(cLoop);
-
+    spdlog::debug("onMessageCallback execute Over !");
 }
 
 

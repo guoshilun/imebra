@@ -281,11 +281,11 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     if (access(saveTo.c_str(), F_OK) != 0) {
         std::string cmdText("mkdir -p \"" + saveTo + "\"");
         int retur =  system(cmdText.c_str());
-        spdlog::info("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
+        spdlog::debug("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
     }
 
     if (access(saveTo.c_str(), F_OK) != 0) {
-        spdlog::info("dir:{} denied access !", saveTo);
+        spdlog::error("dir:{} denied access !", saveTo);
         return;
     }
     std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
@@ -460,7 +460,7 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
             // The association has been closed during the association
         }
         catch (const std::exception &e) {
-            std::wcout << L"错误：" << e.what() << std::endl;
+            spdlog::error("错误：{}" ,e.what());
         }
 
         {

@@ -27,16 +27,17 @@ const char *ClearResource("clear Resource ");
 const char * SCP_LOGGER_NAME("scp-logger");
 
 
-// 1分钟
+/// 1分钟
 const size_t ONE_MINUTE = 60 * 1000;
 
 const size_t ONE_HOUR = 60 * ONE_MINUTE;
 
 const size_t ONE_DAY = 24 * ONE_HOUR;
 
-// 5M
+/// 5M
 const int SPDLOG_MAX_SIZE_SINGLE_FILE = 1048576 * 5;
-// 30
+
+/// 30
 const int SPDLOG_MAX_ROATING_FILES = 20;
 
 
