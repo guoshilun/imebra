@@ -20,9 +20,7 @@ const char *DEAD_ROUTING_KEY = "DICOM.dead";
 
 const char *SUCCESS(" Success");
 const char *FAILED(" Failed:");
-const char *CreateExchange("create Exchange :");
 const char *CreateQueue("create Queue :");
-const char *BindQueue("bind Queue :");
 const char *ClearResource("clear Resource ");
 
 

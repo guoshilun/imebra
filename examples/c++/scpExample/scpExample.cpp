@@ -27,12 +27,6 @@
 #include "SetupRabbitRuntime.h"
 
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/async_logger.h>
-#include <spdlog/async.h>
-
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
 // When the app must terminate then we abort all the active associations.
@@ -78,60 +72,9 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
-        bool createLog(false);
-        try {
-            //////////////////////////////////////////////////
-            ///  spdlog 参考：http://www.mianshigee.com/project/spdlog
-            ///  低于设置级别的日志将不会被输出。各level排序，数值越大级别越高：
-            ///    trace =  0,
-            ///    debug =1,
-            ///    info = 2,
-            ///    warn = 3,
-            ///    err = 4,
-            ///    critical = 5,
-            ///    off = 6,
-            ///    n_levels=7
-            //////////////////////////////////////////////////
-            spdlog::init_thread_pool(8192, 1);
-            ///---------------------滚动日志
 
 
-            ///--------------全部输出
-            auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            stdout_sink->set_level(spdlog::level::debug);
-            stdout_sink->set_pattern("[%^%l%$] %v");
-
-            auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/info.txt",
-                                                                                        SPDLOG_MAX_SIZE_SINGLE_FILE,
-                                                                                        SPDLOG_MAX_ROATING_FILES);
-            rotating_sink->set_level(spdlog::level::info);
-            rotating_sink->set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
-
-
-            std::vector<spdlog::sink_ptr> sinks{stdout_sink, rotating_sink};
-            auto defLogger = std::make_shared<spdlog::async_logger>(SCP_LOGGER_NAME, sinks.begin(), sinks.end(),
-                                                                    spdlog::thread_pool(),
-                                                                    spdlog::async_overflow_policy::block);
-            spdlog::register_logger(defLogger);
-
-
-//            spdlog::logger logger("multi_sink", {stdout_sink, rotating_sink});
-
-//           std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
-            spdlog::set_level(spdlog::level::trace); // Set global log level to debug
-            spdlog::set_default_logger(defLogger);
-            //---每隔60秒刷新一下日志
-            spdlog::flush_every(std::chrono::seconds(60));
-            spdlog::set_error_handler(
-                    [](const std::string &msg) { spdlog::get("console")->error("*** LOGGER ERROR ***: {}", msg); });
-
-
-            createLog = true;
-        }
-        catch (const spdlog::spdlog_ex &ex) {
-            std::wcout << L"Log init failed: " << ex.what() << std::endl;
-        }
-
+        bool createLog= setupSpdlogRuntime();
         if (!createLog) {
             return 0;
         }

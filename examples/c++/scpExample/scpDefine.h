@@ -281,11 +281,11 @@ void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std
     if (access(saveTo.c_str(), F_OK) != 0) {
         std::string cmdText("mkdir -p \"" + saveTo + "\"");
         int retur =  system(cmdText.c_str());
-        spdlog::info("{} = create directory:{}", retur, saveTo);
+        spdlog::info("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
     }
 
     if (access(saveTo.c_str(), F_OK) != 0) {
-        spdlog::info("access directory:{} is not allowed ", saveTo);
+        spdlog::info("dir:{} denied access !", saveTo);
         return;
     }
     std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
