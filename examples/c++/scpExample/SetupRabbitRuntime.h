@@ -13,8 +13,7 @@
 #define IMEBRA_SETUPRABBITRUNTIME_H
 
 
-
-bool  setupSpdlogRuntime(){
+bool setupSpdlogRuntime() {
     bool createLog(false);
     try {
         //////////////////////////////////////////////////
@@ -29,7 +28,7 @@ bool  setupSpdlogRuntime(){
         ///    off = 6,
         ///    n_levels=7
         //////////////////////////////////////////////////
-        spdlog::init_thread_pool(8192, 1);
+        spdlog::init_thread_pool(8192, SPDLOG_MAX_THREADS);
         ///---------------------滚动日志
 
 
@@ -68,9 +67,8 @@ bool  setupSpdlogRuntime(){
     catch (const spdlog::spdlog_ex &ex) {
         std::wcout << L"Log init failed: " << ex.what() << std::endl;
     }
-    return  createLog;
+    return createLog;
 }
-
 
 
 void setupRabbitRuntime() {
@@ -101,7 +99,7 @@ void setupRabbitRuntime() {
         mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
                 .onSuccess([&]() {
                     //by now the exchange is created
-                    spdlog::info("create Exchange {} {}  and x-message-ttl={} ", DEAD_EXCAHGE, SUCCESS , 1 * ONE_DAY );
+                    spdlog::info("create Exchange {} {}  and x-message-ttl={} ", DEAD_EXCAHGE, SUCCESS, 1 * ONE_DAY);
                 })
                 .onError([&](const char *message) {
                     spdlog::error("create Exchange {} {}:{}", MQ_EXCHANG, FAILED, message);
@@ -143,27 +141,27 @@ void setupRabbitRuntime() {
     deadChannel.declareExchange(DEAD_EXCAHGE, AMQP::fanout, AMQP::durable)
             .onSuccess([&]() {
                 //by now the exchange is created
-                spdlog::info("create Exchange {} {}  and x-message-ttl={}", DEAD_EXCAHGE, SUCCESS , 7* ONE_DAY );
+                spdlog::info("create Exchange {} {}  and x-message-ttl={}", DEAD_EXCAHGE, SUCCESS, 7 * ONE_DAY);
             })
             .onError([&](const char *message) {
                 //something went wrong creating the exchange
-                spdlog::error("create Exchange {} {}:{}", DEAD_EXCAHGE,FAILED, message);
+                spdlog::error("create Exchange {} {}:{}", DEAD_EXCAHGE, FAILED, message);
             });
     deadChannel.declareQueue(DEAD_QUEUE, AMQP::durable, deadArguments)
             .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
                 spdlog::info("create Queue {} {}", DEAD_QUEUE, SUCCESS);
             })
             .onError([&](const char *message) {
-                spdlog::error("create Queue {} {}:{}", DEAD_QUEUE,FAILED, message);
+                spdlog::error("create Queue {} {}:{}", DEAD_QUEUE, FAILED, message);
             });
     deadChannel.bindQueue(DEAD_EXCAHGE, DEAD_QUEUE, DEAD_ROUTING_KEY)
             .onSuccess([&]() {
-                spdlog::info("bindQueue   {} {} {}", DEAD_QUEUE, DEAD_EXCAHGE,  SUCCESS);
+                spdlog::info("bindQueue   {} {} {}", DEAD_QUEUE, DEAD_EXCAHGE, SUCCESS);
             })
             .onError([&](const char *message) {
                 // none of the messages were published
                 // now we have to do it all over again
-                spdlog::error("bindQueue   {} {} {}:{}", DEAD_QUEUE, DEAD_EXCAHGE,  FAILED,message);
+                spdlog::error("bindQueue   {} {} {}:{}", DEAD_QUEUE, DEAD_EXCAHGE, FAILED, message);
                 std::call_once(onceFlag, uv_stop, loop);
             }).onFinalize([&]() {
                 spdlog::debug("Dead TcpChannel and Create Dicom Exchange And Queue Begin");
@@ -195,7 +193,8 @@ void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
         spdlog::error("Commit Messages：{} with {}", dicomMessages.size(), msg);
         channel.rollbackTransaction();
         try {
-            auto logger = spdlog::rotating_logger_mt("mq", "mq/message.txt", SPDLOG_MAX_SIZE_SINGLE_FILE, SPDLOG_MAX_ROATING_FILES);
+            auto logger = spdlog::rotating_logger_mt("mq", "mq/message.txt", SPDLOG_MAX_SIZE_SINGLE_FILE,
+                                                     SPDLOG_MAX_ROATING_FILES);
             logger->set_pattern("%v");
             logger->set_level(spdlog::level::level_enum::info);
             for (DcmInfo cmsg: dicomMessages) {

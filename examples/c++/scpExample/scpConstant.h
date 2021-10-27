@@ -37,8 +37,10 @@ const size_t ONE_DAY = 24 * ONE_HOUR;
 /// 5M
 const int SPDLOG_MAX_SIZE_SINGLE_FILE = 1048576 * 5;
 
-/// 30
+/// 20
 const int SPDLOG_MAX_ROATING_FILES = 20;
 
+/// 4
+const int SPDLOG_MAX_THREADS  = 4;
 
 #endif //IMEBRA_SCPCONSTANT_H

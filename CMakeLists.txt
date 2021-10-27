@@ -89,15 +89,15 @@ endif (APPLE)
 
 ##############################################
 #
-# LIBRARY
+# LIBRARY  下面3个库安装到系统库
 #
 ##############################################
-
-
-
+#   AMQP-CPP.git   v4.3.15
+#   libuv          v1.42.0
+#   spdlog         v1.9.2
 ##############################################
-#  https://gitee.com/dhz1217/libco.git  v1.42.0
-#  https://github.com/CopernicaMarketingSoftware/AMQP-CPP.git   v4.3.15
+
+
 
 
 add_definitions(-DIMEBRA_DLL)
@@ -106,8 +106,7 @@ add_definitions(-DNOMINMAX)
 
 file(GLOB imebra_interface "${CMAKE_CURRENT_SOURCE_DIR}/library/include/imebra/*.h")
 file(GLOB imebra_include "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.h"
-        “${CMAKE_CURRENT_BINARY_DIR}/libuv_install/include/*.h"
-        “${CMAKE_CURRENT_BINARY_DIR}/libuv_install/include/uv/*.h"
+
 )
 file(GLOB imebra_src "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.cpp")
 file(GLOB imebra_implementation_src "${CMAKE_CURRENT_SOURCE_DIR}/library/implementation/*.cpp")
