@@ -4,43 +4,43 @@ Queues:
   - name: Dicom.CT
     arguments:
       - key: x-message-ttl
-        value: 360000
+        value: 36000000
         type: num
-
+      # 通过 exchange 和 routing-key 可以转发到指定的死信队列
       - key: x-dead-letter-exchange
-        value: Queue.Dead
+        value: Dicom.DEAD.Exchange
         type: string
 
       - key: x-dead-letter-routing-key
-        value: Dicom.CT
+        value: Dead
         type: string
 
   - name: Dicom.DR
     arguments:
       - key: x-message-ttl
-        value: 360000
+        value: 36000000
         type: num
 
       - key: x-dead-letter-exchange
-        value: Queue.Dead
+        value: Dicom.DEAD.Exchange
         type: string
 
       - key: x-dead-letter-routing-key
-        value: Dicom.DR
+        value: Dead
         type: string
 
   - name: Dicom.BodyPartUnknow
     arguments:
       - key: x-message-ttl
-        value: 360000
+        value: 36000000
         type: num
 
       - key: x-dead-letter-exchange
-        value: Queue.Dead
+        value: Dicom.DEAD.Exchange
         type: string
 
       - key: x-dead-letter-routing-key
-        value: Dicom.DR
+        value: Dead
         type: string
 
 
@@ -48,66 +48,81 @@ Queues:
   - name: Dicom.Upload
     arguments:
       - key: x-message-ttl
-        value: 360000
+        value: 36000000
         type: num
 
       - key: x-dead-letter-exchange
-        value: Queue.Dead
+        value: Dicom.DEAD.Exchange
         type: string
 
       - key: x-dead-letter-routing-key
-        value: Dicom
+        value: Dead
         type: string
 
+
+  # 死队列
+  - name: Dicom.DeadQueue
+    arguments:
+      - key: x-message-ttl
+        value: 864000000
+        type: num
+#  交换机类型：
+#
+#  direct（直连交换机）：将队列绑定到交换机，消息的 routeKey 需要与队列绑定的 routeKey 相同。
+#  fanout （扇形交换机）：不处理 routeKey ，直接把消息转发到与其绑定的所有队列中。
+#  topic（主题交换机）：根据一定的规则，根据 routeKey 把消息转发到符合规则的队列中，其中#用于匹配符合一个或者多个词（范围更广）， * 用于匹配一个词。
+#  headers （头部交换机）：根据消息的 headers 转发消息而不是根据 routeKey 来转发消息, 其中 header 是一个 Map，也就意味着不仅可以匹配字符串类型，也可以匹配其他类型数据。
+#  规则可以分为所有键值对匹配或者单一键值对匹配。
+
+#type 取值： direct | topic | fanout | headers 的某一个
 Exchanges:
-  - name: Dicom.SCP.Storage
+  - name: Dicom.SCP.CStoreSCP
     type: fanout
 
-  - name: Dicom.SCP.Persistent
+  - name: Dicom.SCP.OSS
     type: fanout
 
-  - name: Dicom.SCP
+  - name: Dicom.SCP.AI
     type: headers
+
+  - name: Dicom.DEAD.Exchange
+    type: direct
 
 
 BindExchange:
-  - from: Dicom.SCP.Storage
-    to: Dicom.SCP
+  - from: Dicom.SCP.CStoreSCP
+    to: Dicom.SCP.AI
+    routingkey: Dicom
+
+
+  - from: Dicom.SCP.CStoreSCP
+    to: Dicom.SCP.OSS
     routingkey: Dicom
 
 
 
-  - from: Dicom.SCP.Storage
-    to: Dicom.SCP.Persistent
-    routingkey: Dicom
-
-
-
-
-    #type 取值： direct | topic | fanout | headers 的某一个
-
-#  过滤参数提供  Modality ,Thickness,BodyPartExamined
+#  过滤参数提供  Modality ,Thickness,BodyPartExamined  只对 ExchangeType= headers 有效
 
 BindQueue:
   - queuename: Dicom.CT
-    exchange: Dicom.SCP
-    routingkey: Dicom
+    exchange: Dicom.SCP.AI
+    routingkey: Dicom.AI
     arguments:
       - key: Modality
         value: CT
         type: string
 
   - queuename: Dicom.DR
-    exchange: Dicom.SCP
-    routingkey: Dicom
+    exchange: Dicom.SCP.AI
+    routingkey: Dicom.AI
     arguments:
       - key: Modality
         value: DR
         type: string
 
   - queuename: Dicom.BodyPartUnknow
-    exchange: Dicom.SCP
-    routingkey: Dicom
+    exchange: Dicom.SCP.AI
+    routingkey: Dicom.AI
     arguments:
       - key: BodyPartExamined
         value: UNKNOW
@@ -115,15 +130,22 @@ BindQueue:
 
 
   - queuename: Dicom.Upload
-    exchange: Dicom.SCP.Persistent
+    exchange: Dicom.SCP.OSS
     routingkey: Dicom
+
+  # 绑定死信队列
+  - queuename: Dicom.DeadQueue
+    exchange:  Dicom.DEAD.Exchange
+    routingkey: Dead
 
 # RabbitMQ  消息发送的的起始队列和路由键
 # 此节是必须的
 MessagePub:
-  exchange: Dicom.SCP.Storage
+  exchange: Dicom.SCP.CStoreSCP
   routingKey: Dicom
 
+# 所有转换不成功的的取值都是
+# UNKNOW
 # 可选节（最好配置 ， 设备类型取值不太一样 Modality_0008_0060）
 ModalityConverter:
   - key: DR
