@@ -3,7 +3,7 @@
 //
 
 #include "DcmInfo.h"
-
+#include <spdlog/spdlog.h>
 
 DcmInfo::DcmInfo(const imebra::DataSet &payload) {
 
@@ -77,17 +77,38 @@ bool DcmInfo::operator<(const DcmInfo &rhs) const {
     return this->mSopInstUid < rhs.mSopInstUid;
 }
 
-std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage() {
+std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std::string> &mapModality,
+                                                       std::map<std::string, std::string> &mapBodyPart) {
     std::shared_ptr<AMQP::Envelope> ptr = std::make_shared<AMQP::Envelope>(mSopInstUid.data(), mSopInstUid.size());
 
     ptr.get()->setDeliveryMode(2);
     ptr.get()->setContentEncoding("utf-8");
     ptr.get()->setContentType("text/plain");
     AMQP::Table messageHeaders;
-    //消息头
     messageHeaders["Modality"] = mModality;
-    messageHeaders["Thickness"] = mThickness;
     messageHeaders["BodyPartExamined"] = mExamPart;
+    // std::string tx = std::toupper(mModality, std::locale("zh_CN.utf8"));
+    {
+        std::string mgx(mModality);
+        transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
+        if (0 != mapModality.count(mgx)) {
+            messageHeaders["Modality"] = mapModality[mgx];
+            spdlog::debug("Modality:{} =>{}", mModality, mapModality[mgx]);
+        }
+    }
+    {
+
+        std::string bp(mExamPart);
+        transform(bp.begin(), bp.end(), bp.begin(), ::toupper);
+        if (0 != mapBodyPart.count(bp)) {
+            messageHeaders["BodyPartExamined"] = mapBodyPart[bp];
+            spdlog::debug("BodyPartExamed:{} =>{}", mExamPart, mapBodyPart[bp]);
+        }
+    }
+
+
+    messageHeaders["Thickness"] = mThickness;
+
     ptr.get()->setHeaders(messageHeaders);
 
     return ptr;

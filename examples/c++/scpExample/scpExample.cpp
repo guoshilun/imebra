@@ -14,7 +14,6 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <functional>
 #include <list>
 
 #include <imebra/imebra.h>
@@ -25,13 +24,12 @@
 #include <condition_variable>
 #include "scpDefine.h"
 #include "SetupRabbitRuntime.h"
-
-
+#include <yaml-cpp/node/parse.h>
+#include <fstream>
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
 // When the app must terminate then we abort all the active associations.
 
-using namespace std;
 
 ///
 /// \brief main
@@ -44,6 +42,8 @@ using namespace std;
 int main(int argc, char *argv[]) {
     std::ios::sync_with_stdio(false);
     std::wcout.imbue(std::locale(""));
+
+
 
 
     try {
@@ -73,11 +73,11 @@ int main(int argc, char *argv[]) {
         }
 
 
-
-        bool createLog= setupSpdlogRuntime();
+        bool createLog = setupSpdlogRuntime();
         if (!createLog) {
             return 0;
         }
+        setupRabbitDispatcher();
 
         std::mutex cv_m;
         std::unique_lock<std::mutex> lk(cv_m);
@@ -86,14 +86,6 @@ int main(int argc, char *argv[]) {
         std::string aet(argv[2]);
         setupDicomContexts(presentationContexts);
 
-
-        std::thread loopThrea([&]() {
-            setupRabbitRuntime();
-            spdlog::debug("Init RabbitMQ  Exchange And  Queue  Over ");
-            //std::wcout << L"Init RabbitMQ  Exchange And  Queue  Over !" << std::endl;
-        });
-
-        loopThrea.join();
         // Create a listening socket bound to the port in the first argument
         imebra::TCPPassiveAddress listeningAddress("", port);
         imebra::TCPListener listenForConnections(listeningAddress);

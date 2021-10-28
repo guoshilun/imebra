@@ -147,8 +147,8 @@ namespace dicom2018e
     static const char* const uidPresentationLUTSOPClass = "1.2.840.10008.5.1.1.23"; ///< Presentation LUT SOP Class Same as uidPresentationLUTSOPClass_1_2_840_10008_5_1_1_23
     static const char* const uidImageOverlayBoxSOPClass = "1.2.840.10008.5.1.1.24"; ///< Image Overlay Box SOP Class (Retired) Same as uidImageOverlayBoxSOPClass_1_2_840_10008_5_1_1_24
     static const char* const uidBasicPrintImageOverlayBoxSOPClass = "1.2.840.10008.5.1.1.24.1"; ///< Basic Print Image Overlay Box SOP Class (Retired) Same as uidBasicPrintImageOverlayBoxSOPClass_1_2_840_10008_5_1_1_24_1
-    static const char* const uidPrintQueueSOPInstance = "1.2.840.10008.5.1.1.25"; ///< Print Queue SOP Instance (Retired) Same as uidPrintQueueSOPInstance_1_2_840_10008_5_1_1_25
-    static const char* const uidPrintQueueManagementSOPClass = "1.2.840.10008.5.1.1.26"; ///< Print Queue Management SOP Class (Retired) Same as uidPrintQueueManagementSOPClass_1_2_840_10008_5_1_1_26
+    static const char* const uidPrintQueueSOPInstance = "1.2.840.10008.5.1.1.25"; ///< Print RabbitMqQueueInfo SOP Instance (Retired) Same as uidPrintQueueSOPInstance_1_2_840_10008_5_1_1_25
+    static const char* const uidPrintQueueManagementSOPClass = "1.2.840.10008.5.1.1.26"; ///< Print RabbitMqQueueInfo Management SOP Class (Retired) Same as uidPrintQueueManagementSOPClass_1_2_840_10008_5_1_1_26
     static const char* const uidStoredPrintStorageSOPClass = "1.2.840.10008.5.1.1.27"; ///< Stored Print Storage SOP Class (Retired) Same as uidStoredPrintStorageSOPClass_1_2_840_10008_5_1_1_27
     static const char* const uidHardcopyGrayscaleImageStorageSOPClass = "1.2.840.10008.5.1.1.29"; ///< Hardcopy Grayscale Image Storage SOP Class (Retired) Same as uidHardcopyGrayscaleImageStorageSOPClass_1_2_840_10008_5_1_1_29
     static const char* const uidHardcopyColorImageStorageSOPClass = "1.2.840.10008.5.1.1.30"; ///< Hardcopy Color Image Storage SOP Class (Retired) Same as uidHardcopyColorImageStorageSOPClass_1_2_840_10008_5_1_1_30

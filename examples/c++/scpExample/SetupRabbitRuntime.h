@@ -4,13 +4,25 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/async_logger.h>
 #include <spdlog/async.h>
+#include <iostream>
+#include <yaml-cpp/yaml.h>
 #include "scpConstant.h"
-//
 // Created by dhz on 2021/10/25.
 //
 
 #ifndef IMEBRA_SETUPRABBITRUNTIME_H
 #define IMEBRA_SETUPRABBITRUNTIME_H
+
+//
+//MessagePub:
+//exchange: Dicom.SCP
+//        routingKey: Dicom
+
+
+
+
+static std::vector<DicomTagConverter> modalityConverter;
+static std::vector<DicomTagConverter> examedBodyPartConverter;
 
 
 bool setupSpdlogRuntime() {
@@ -70,108 +82,232 @@ bool setupSpdlogRuntime() {
     return createLog;
 }
 
+void fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP::Table &table) {
 
-void setupRabbitRuntime() {
 
-    spdlog::debug("setupRabbitRuntime  Begin");
+    for (auto a: args) {
+        if (a.type == "num") {
+            table[a.key] = std::stoi(a.value);
+        } else if (a.type == "bool") {
+            table[a.key] = a.value == "true";
+        } else {
+            table[a.key] = a.value;
+        }
+    }
+}
+
+
+void createQueue(void *req) {
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
+    DicomMessageHandler mqHandler(loop);
+    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::TcpConnection conn(&mqHandler, mqAddres);
+    AMQP::TcpChannel scpChannel(&conn);
+
+    RabbitMqQueueInfo *cqueue = (RabbitMqQueueInfo *) req;
+
+    AMQP::Table qargs;
+    fillTableArgument(cqueue->tableArguments, qargs);
+    scpChannel.declareQueue(cqueue->name, AMQP::durable, qargs)
+            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                spdlog::info("create Queue: {} success", name);
+            }).onError([&](const char *message) {
+                spdlog::error("create Queue: {} Failed {}", cqueue->name, message);
+            }).onFinalize([&] {
+                spdlog::debug("create Queue: {} Over And Clear loop Resourse", cqueue->name);
+                uv_stop(loop);
+                uv_loop_close(loop);
+                free(loop);
+            });
+    uv_run(loop, UV_RUN_DEFAULT);
+}
+
+
+void createExchage(void *req) {
+    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
     AMQP::Address mqAddres(MQ_ADDRESS);
-    AMQP::TcpConnection mqConn(&mqHandler, mqAddres);
-    AMQP::TcpChannel deadChannel(&mqConn);
+    AMQP::TcpConnection conn(&mqHandler, mqAddres);
+    AMQP::TcpChannel scpChannel(&conn);
 
+    RabbitMqExchangeInfo *exchangeInfo = (RabbitMqExchangeInfo *) req;
 
-    //////////////////////////////////////////////////
-    //////创建DICOM 收图消息队列
-    //////////////////////////////////////////////////////
-    std::once_flag onceFlag;
-    auto createDicomExchangeAndQueue = [&] {
+    AMQP::ExchangeType chgType = AMQP::ExchangeType::fanout;
+    if (exchangeInfo->type == "direct") {
+        chgType = AMQP::ExchangeType::direct;
+    } else if (exchangeInfo->type == "topic") {
+        chgType = AMQP::ExchangeType::topic;
+    } else if (exchangeInfo->type == "headers") {
+        chgType = AMQP::ExchangeType::headers;
+    }
 
-        AMQP::TcpChannel mqPtr(&mqConn);
-        AMQP::Table arguments;
-        arguments["x-dead-letter-exchange"] = DEAD_EXCAHGE;
-        arguments["x-dead-letter-routing-key"] = DEAD_ROUTING_KEY;
-        //  消息过期时间为1天 分钟
-        arguments["x-message-ttl"] = 1 * ONE_DAY;
-        mqPtr.declareExchange(MQ_EXCHANG, AMQP::fanout, AMQP::durable)
-                .onSuccess([&]() {
-                    //by now the exchange is created
-                    spdlog::info("create Exchange {} {}  and x-message-ttl={} ", DEAD_EXCAHGE, SUCCESS, 1 * ONE_DAY);
-                })
-                .onError([&](const char *message) {
-                    spdlog::error("create Exchange {} {}:{}", MQ_EXCHANG, FAILED, message);
-                });
-
-        mqPtr.declareQueue(MQ_QUEUE, AMQP::durable, arguments)
-                .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
-                    spdlog::info("create Queue {} {}", name, SUCCESS);
-                })
-                .onError([&](const char *message) {
-                    spdlog::error("create Queue {} {}:{}", MQ_QUEUE, FAILED, message);
-                });
-
-        mqPtr.bindQueue(MQ_EXCHANG, MQ_QUEUE, MQ_ROUTING_KEY).onSuccess([&]() {
-
-            spdlog::info("bindQueue  {} TO {} {}", MQ_QUEUE, MQ_EXCHANG, SUCCESS);
-
-        }).onError([&](const char *message) {
-            spdlog::error("bindQueue  {} TO {} {}:{}", MQ_QUEUE, MQ_EXCHANG, FAILED, message);
-        }).onFinalize([&]() {
-            spdlog::debug(" Create Dicom Exchange And Queue End");
-            std::call_once(onceFlag, uv_stop, loop);
-        });
-
-    };
-
-
-
-
-
-
-    //-----------创建相关的消息队列
-    ///-----------------创建死信消息队列
-    AMQP::Table deadArguments;
-    // 在声明队列的时候可以通过 x-message-ttl 属性来控制消息的TTL， 这个参数的单位是毫秒
-    //  指定消息过期时间（毫秒），消息过期后自动删除死信消息，防止把磁盘用完！
-    //  1小时过期：
-    deadArguments["x-message-ttl"] = 7 * ONE_DAY;
-    deadChannel.declareExchange(DEAD_EXCAHGE, AMQP::fanout, AMQP::durable)
+    AMQP::Table chgTable;
+    fillTableArgument(exchangeInfo->tableArguments, chgTable);
+    scpChannel.declareExchange(exchangeInfo->name, chgType, AMQP::durable, chgTable)
             .onSuccess([&]() {
-                //by now the exchange is created
-                spdlog::info("create Exchange {} {}  and x-message-ttl={}", DEAD_EXCAHGE, SUCCESS, 7 * ONE_DAY);
-            })
-            .onError([&](const char *message) {
-                //something went wrong creating the exchange
-                spdlog::error("create Exchange {} {}:{}", DEAD_EXCAHGE, FAILED, message);
+                spdlog::info("create Exchange:{} with Type:{} Success", exchangeInfo->name, exchangeInfo->type);
+
+            }).onError([&](const char *message) {
+                spdlog::error("create Exchange:{} with Type:{} Failed With {}", exchangeInfo->name, exchangeInfo->type,
+                              message);
+            }).onFinalize([&] {
+                spdlog::debug("create Exchange:{} Over And clear loop Resourse:", exchangeInfo->name);
+
+                uv_stop(loop);
+                uv_loop_close(loop);
+                free(loop);
             });
-    deadChannel.declareQueue(DEAD_QUEUE, AMQP::durable, deadArguments)
-            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
-                spdlog::info("create Queue {} {}", DEAD_QUEUE, SUCCESS);
-            })
-            .onError([&](const char *message) {
-                spdlog::error("create Queue {} {}:{}", DEAD_QUEUE, FAILED, message);
-            });
-    deadChannel.bindQueue(DEAD_EXCAHGE, DEAD_QUEUE, DEAD_ROUTING_KEY)
+    uv_run(loop, UV_RUN_DEFAULT);
+}
+
+
+void bindQueue(void *req) {
+    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(loop);
+
+    DicomMessageHandler mqHandler(loop);
+    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::TcpConnection conn(&mqHandler, mqAddres);
+    AMQP::TcpChannel scpChannel(&conn);
+
+    RabbitMqBindQueueInfo *bindingInfo = (RabbitMqBindQueueInfo *) req;
+
+    AMQP::Table bindingTable;
+
+    fillTableArgument(bindingInfo->tableArguments, bindingTable);
+
+
+    scpChannel.bindQueue(bindingInfo->exchange, bindingInfo->queuename, bindingInfo->routingkey, bindingTable)
             .onSuccess([&]() {
-                spdlog::info("bindQueue   {} {} {}", DEAD_QUEUE, DEAD_EXCAHGE, SUCCESS);
+                spdlog::info("bindQueue:{} to {} with routingKey {}  Success ", bindingInfo->queuename,
+                             bindingInfo->exchange, bindingInfo->routingkey);
             })
-            .onError([&](const char *message) {
-                // none of the messages were published
-                // now we have to do it all over again
-                spdlog::error("bindQueue   {} {} {}:{}", DEAD_QUEUE, DEAD_EXCAHGE, FAILED, message);
-                std::call_once(onceFlag, uv_stop, loop);
+            .onError([&](const char *msg) {
+                spdlog::error("bindQueue:{} to {}  :{} ", bindingInfo->queuename, bindingInfo->exchange, msg);
             }).onFinalize([&]() {
-                spdlog::debug("Dead TcpChannel and Create Dicom Exchange And Queue Begin");
-                createDicomExchangeAndQueue();
+                spdlog::debug("bindQueue:{} to {}  Over And clear loop Resourse:", bindingInfo->queuename,
+                              bindingInfo->exchange);
+
+                uv_stop(loop);
+                uv_loop_close(loop);
+                free(loop);
             });
 
     uv_run(loop, UV_RUN_DEFAULT);
-    uv_loop_close(loop);
-    free(loop);
-    spdlog::debug("setupRabbitRuntime  End ！");
+}
+
+std::string findMatchedModality(std::string cmod) {
+    bool find = false;
+    std::string result;
+    transform(cmod.begin(), cmod.end(), cmod.begin(), ::toupper);
+    for (auto modality: modalityConverter) {
+        std::vector<std::string>::iterator iter = std::find(modality.values.begin(), modality.values.end(), cmod);
+        if (iter != modality.values.end()) {
+            result = modality.key;
+            find = true;
+            break;
+        }
+    }
+    return find ? result : cmod;
+}
+
+
+void setupRabbitDispatcher() {
+
+    /// 查找符合要求的设备类型
+
+    spdlog::debug("setupRabbitRuntime  Begin");
+    spdlog::info("从当前目录./config.yaml 读取配置文件");
+    YAML::Node config = YAML::LoadFile("./config.yaml");
+    messagePubExchange = config["MessagePub"]["exchange"].as<std::string>();
+    messagePubRoutingKey = config["MessagePub"]["routingKey"].as<std::string>();
+
+    if (config["ModalityConverter"]) {
+        modalityConverter = config["ModalityConverter"].as<std::vector<DicomTagConverter>>();
+        for (auto ct: modalityConverter) {
+            std::string result = join(ct.values.begin(), ct.values.end(), ",");
+            spdlog::info("ModalityConverter: {}=>{}", result, ct.key);
+
+            for (const auto& modality: ct.values) {
+
+                std::string mgx(modality.c_str());
+                transform(mgx.begin(),mgx.end(),mgx.begin(),::toupper);
+                mapModality[mgx] = ct.key;
+            }
+        }
+
+
+    }
+    if (config["BodyPartConverter"]) {
+        examedBodyPartConverter = config["BodyPartConverter"].as<std::vector<DicomTagConverter>>();
+        for (auto bodypart: examedBodyPartConverter) {
+            std::string result = join(bodypart.values.begin(), bodypart.values.end(), ",");
+            spdlog::info("BodyPartConverter: {}=>{}", result, bodypart.key);
+
+            for (const auto& body: bodypart.values) {
+
+                std::string mgx(body.c_str());
+                transform(mgx.begin(),mgx.end(),mgx.begin(),::toupper);
+
+                // std::string tx = std::toupper(body, std::locale("zh_CN.utf8"));
+                mapBodyPart[mgx] = bodypart.key;
+            }
+
+        }
+    }
+
+    //BodyPartConverter
+
+    spdlog::info("MessagePublish Exchange={},RoutingKey={}", messagePubExchange, messagePubRoutingKey);
+
+    {
+
+
+        std::vector<RabbitMqQueueInfo> vi = config["Queues"].as<std::vector<RabbitMqQueueInfo>>();
+        std::list<uv_thread_t> threads;
+        size_t vsize = vi.size();
+        for (size_t index = 0; index < vsize; index++) {
+            uv_thread_t ct;
+            uv_thread_create(&ct, createQueue, &vi[index]);
+            threads.push_back(ct);
+        }
+        for (auto t: threads) {
+            uv_thread_join(&t);
+        }
+    }
+
+    {
+        std::vector<RabbitMqExchangeInfo> exchanges = config["Exchanges"].as<std::vector<RabbitMqExchangeInfo>>();
+        std::list<uv_thread_t> exchangeThreads;
+        size_t chgSize = exchanges.size();
+        for (size_t index = 0; index < chgSize; index++) {
+            uv_thread_t ct;
+            uv_thread_create(&ct, createExchage, &exchanges[index]);
+            exchangeThreads.push_back(ct);
+        }
+        for (auto t: exchangeThreads) {
+            uv_thread_join(&t);
+        }
+    }
+
+
+    {
+        std::vector<RabbitMqBindQueueInfo> bindings = config["BindQueue"].as<std::vector<RabbitMqBindQueueInfo>>();
+        std::list<uv_thread_t> bindingsThreads;
+        size_t chgSize = bindings.size();
+        for (size_t index = 0; index < chgSize; index++) {
+            uv_thread_t ct;
+            uv_thread_create(&ct, bindQueue, &bindings[index]);
+            bindingsThreads.push_back(ct);
+        }
+        for (auto t: bindingsThreads) {
+            uv_thread_join(&t);
+        }
+    }
 
 }
 
@@ -184,28 +320,14 @@ void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
     AMQP::TcpChannel channel(&jpConn);
     channel.startTransaction();
     for (DcmInfo cmsg: dicomMessages) {
-        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage();
-        channel.publish(MQ_EXCHANG, MQ_ROUTING_KEY, *envelope.get());
+        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage(mapModality, mapBodyPart);
+        channel.publish(messagePubExchange, messagePubRoutingKey, *envelope.get());
     }
     channel.commitTransaction().onSuccess([&dicomMessages]() {
         spdlog::info("Commit Messages：{}  with {}", dicomMessages.size(), SUCCESS);
     }).onError([&dicomMessages, &channel](const char *msg) {
         spdlog::error("Commit Messages：{} with {}", dicomMessages.size(), msg);
         channel.rollbackTransaction();
-        try {
-            auto logger = spdlog::rotating_logger_mt("mq", "mq/message.txt", SPDLOG_MAX_SIZE_SINGLE_FILE,
-                                                     SPDLOG_MAX_ROATING_FILES);
-            logger->set_pattern("%v");
-            logger->set_level(spdlog::level::level_enum::info);
-            for (DcmInfo cmsg: dicomMessages) {
-                logger->info("pid={},suid={},ssuid={},sopuid={},exam={},mod={},thick={}",
-                             cmsg.getPatientId(), cmsg.getStudyUid(), cmsg.getSeriesUid(), cmsg.getSopInstUid(),
-                             cmsg.getExamPart(), cmsg.getModality(), cmsg.getThickness());
-            }
-            logger->flush();
-        } catch (const spdlog::spdlog_ex &) {
-        }
-
     }).onFinalize([&channel, &dicomMessages, &cLoop]() {
         spdlog::debug("Commit Messages OverClear Resource");
         dicomMessages.clear();

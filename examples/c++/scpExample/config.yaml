@@ -1,0 +1,104 @@
+#  type 的取值只能是 num ,string,bool 三种，不支持其它的
+#  注意： type 取值严格区分大小写
+Queues:
+  - name: Dicom.CT
+    arguments:
+      - key: x-message-ttl
+        value: 360000
+        type: num
+
+      - key: x-dead-letter-exchange
+        value: Queue.Dead
+        type: string
+
+      - key: x-dead-letter-routing-key
+        value: Dicom.CT
+        type: string
+
+  - name: Dicom.DR
+    arguments:
+      - key: x-message-ttl
+        value: 360000
+        type: num
+
+      - key: x-dead-letter-exchange
+        value: Queue.Dead
+        type: string
+
+      - key: x-dead-letter-routing-key
+        value: Dicom.DR
+        type: string
+
+
+  - name: Dicom.Upload
+    arguments:
+      - key: x-message-ttl
+        value: 360000
+        type: num
+
+      - key: x-dead-letter-exchange
+        value: Queue.Dead
+        type: string
+
+      - key: x-dead-letter-routing-key
+        value: Dicom
+        type: string
+
+Exchanges:
+  - name: Dicom.SCP
+    type: headers
+
+    #type 取值： direct | topic | fanout | headers 的某一个
+
+
+BindQueue:
+  - queuename: Dicom.CT
+    exchange: Dicom.SCP
+    routingkey: Dicom
+    arguments:
+      - key: Modality
+        value: CT
+        type: string
+
+  - queuename: Dicom.DR
+    exchange: Dicom.SCP
+    routingkey: Dicom
+    arguments:
+      - key: Modality
+        value: DR
+        type: string
+
+  - queuename: Dicom.Upload
+    exchange: Dicom.SCP
+    routingkey: Dicom
+
+# RabbitMQ  消息发送的的起始队列和路由键
+# 此节是必须的
+MessagePub:
+  exchange: Dicom.SCP
+  routingKey: Dicom
+
+# 可选节（最好配置 ， 设备类型取值不太一样 Modality_0008_0060）
+ModalityConverter:
+  - key: DR
+    values:
+      - DR
+      - DX
+      - CX
+  - key: CT
+    values:
+      - CT
+      - MR
+      - MRI
+# 可选节（各个医院的身体部位取值不一直的  BodyPartExamined_0018_0015）
+BodyPartConverter:
+  - key: CHEST
+    values:
+      - CHEST
+      - LUNG
+      - 胸部CT
+  - key: HEAT
+    values:
+      - Heart
+      - Ear
+      - Eye

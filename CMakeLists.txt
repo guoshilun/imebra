@@ -95,6 +95,7 @@ endif (APPLE)
 #   AMQP-CPP.git   v4.3.15
 #   libuv          v1.42.0
 #   spdlog         v1.9.2
+#   https://github.com/jbeder/yaml-cpp               yaml-cpp-0.7.0
 ##############################################
 
 
@@ -438,8 +439,10 @@ if (NOT IOS)
     # Add the source files to the project
     #------------------------------------
 
+    file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
+            DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/SetupRabbitRuntime.h examples/c++/scpExample/scpConstant.h)
-    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp)
+    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp)
 
 endif ()
 

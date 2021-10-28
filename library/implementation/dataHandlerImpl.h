@@ -508,7 +508,7 @@ protected:
 };
 
 ///
-/// \brief Throws an exception if the content of the strings container
+/// \brief Throws an exception if the content of the strings RabbitMqQueueInfo
 ///        does not respect the rules (max size, unit size,
 ///        no multiple strings if separator is not allowed).
 ///
