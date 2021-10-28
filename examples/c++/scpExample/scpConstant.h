@@ -35,6 +35,7 @@ const size_t ONE_HOUR = 60 * ONE_MINUTE;
 
 const size_t ONE_DAY = 24 * ONE_HOUR;
 
+
 /// 5M
 const int SPDLOG_MAX_SIZE_SINGLE_FILE = 1048576 * 5;
 
@@ -72,6 +73,16 @@ struct RabbitMqExchangeInfo {
     std::string type;
     std::vector<RabbitMqArgument> tableArguments;
 };
+
+
+struct RabbitMqBindExchangeInfo {
+
+    std::string from;
+    std::string to;
+    std::string routingkey;
+};
+
+
 struct DicomTagConverter {
 
     std::string key;
@@ -204,6 +215,24 @@ namespace YAML {
         static bool decode(const Node &node, DicomTagConverter &rhs) {
             rhs.key = node["key"].as<std::string>();
             rhs.values = node["values"].as<std::vector<std::string>>();
+            return true;
+        }
+    };
+
+    template<>
+    struct convert<RabbitMqBindExchangeInfo> {
+        static Node encode(const RabbitMqBindExchangeInfo &rhs) {
+            Node node;
+            node.push_back(rhs.from);
+            node.push_back(rhs.to);
+            node.push_back(rhs.routingkey);
+            return node;
+        }
+
+        static bool decode(const Node &node, RabbitMqBindExchangeInfo &rhs) {
+            rhs.from = node["from"].as<std::string>();
+            rhs.to = node["to"].as<std::string>();
+            rhs.routingkey = node["routingkey"].as<std::string>();
             return true;
         }
     };

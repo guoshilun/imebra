@@ -85,15 +85,17 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     ptr.get()->setContentEncoding("utf-8");
     ptr.get()->setContentType("text/plain");
     AMQP::Table messageHeaders;
-    messageHeaders["Modality"] = mModality;
-    messageHeaders["BodyPartExamined"] = mExamPart;
+    messageHeaders["xModality"] = mModality;
+    messageHeaders["xBodyPartExamined"] = mExamPart;
     // std::string tx = std::toupper(mModality, std::locale("zh_CN.utf8"));
     {
         std::string mgx(mModality);
         transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
         if (0 != mapModality.count(mgx)) {
             messageHeaders["Modality"] = mapModality[mgx];
-            spdlog::debug("Modality:{} =>{}", mModality, mapModality[mgx]);
+        } else {
+            messageHeaders["Modality"] = "UNKOWN";
+            spdlog::warn("Modality:{} NOT MAPPED", mgx);
         }
     }
     {
@@ -102,7 +104,9 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
         transform(bp.begin(), bp.end(), bp.begin(), ::toupper);
         if (0 != mapBodyPart.count(bp)) {
             messageHeaders["BodyPartExamined"] = mapBodyPart[bp];
-            spdlog::debug("BodyPartExamed:{} =>{}", mExamPart, mapBodyPart[bp]);
+        } else {
+            messageHeaders["BodyPartExamined"] = "UNKOWN";
+            spdlog::warn("BodyPartExamed:{} NOT MAPPED", bp);
         }
     }
 

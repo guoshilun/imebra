@@ -29,7 +29,9 @@
 // When an association is created then its address is inserted
 // in the set below, when it is destroyed it is removed from the set.
 // When the app must terminate then we abort all the active associations.
-
+#ifndef  SPDLOG_ACTIVE_LEVEL
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE//必须定义这个宏,才能输出文件名和行号
+#endif
 
 ///
 /// \brief main
@@ -41,10 +43,10 @@
 //////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
     std::ios::sync_with_stdio(false);
-    std::wcout.imbue(std::locale(""));
-
-
-
+    std::locale lc("zh_CN.UTF-8");
+    std::locale::global(lc);
+    std::cout.imbue(lc);
+    std::wcout.imbue(lc);
 
     try {
         // Check the number of received arguments
@@ -136,7 +138,7 @@ int main(int argc, char *argv[]) {
         // Terminate the listening socket: will cause the listening thread to exit
         listenForConnections.terminate();
         listeningThread.join();
-
+        spdlog::drop_all();
         return 0;
 
     }

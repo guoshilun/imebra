@@ -29,6 +29,21 @@ Queues:
         value: Dicom.DR
         type: string
 
+  - name: Dicom.BodyPartUnknow
+    arguments:
+      - key: x-message-ttl
+        value: 360000
+        type: num
+
+      - key: x-dead-letter-exchange
+        value: Queue.Dead
+        type: string
+
+      - key: x-dead-letter-routing-key
+        value: Dicom.DR
+        type: string
+
+
 
   - name: Dicom.Upload
     arguments:
@@ -45,11 +60,33 @@ Queues:
         type: string
 
 Exchanges:
+  - name: Dicom.SCP.Storage
+    type: fanout
+
+  - name: Dicom.SCP.Persistent
+    type: fanout
+
   - name: Dicom.SCP
     type: headers
 
+
+BindExchange:
+  - from: Dicom.SCP.Storage
+    to: Dicom.SCP
+    routingkey: Dicom
+
+
+
+  - from: Dicom.SCP.Storage
+    to: Dicom.SCP.Persistent
+    routingkey: Dicom
+
+
+
+
     #type 取值： direct | topic | fanout | headers 的某一个
 
+#  过滤参数提供  Modality ,Thickness,BodyPartExamined
 
 BindQueue:
   - queuename: Dicom.CT
@@ -68,14 +105,23 @@ BindQueue:
         value: DR
         type: string
 
-  - queuename: Dicom.Upload
+  - queuename: Dicom.BodyPartUnknow
     exchange: Dicom.SCP
+    routingkey: Dicom
+    arguments:
+      - key: BodyPartExamined
+        value: UNKNOW
+        type: string
+
+
+  - queuename: Dicom.Upload
+    exchange: Dicom.SCP.Persistent
     routingkey: Dicom
 
 # RabbitMQ  消息发送的的起始队列和路由键
 # 此节是必须的
 MessagePub:
-  exchange: Dicom.SCP
+  exchange: Dicom.SCP.Storage
   routingKey: Dicom
 
 # 可选节（最好配置 ， 设备类型取值不太一样 Modality_0008_0060）
@@ -85,6 +131,11 @@ ModalityConverter:
       - DR
       - DX
       - CX
+      - CR
+      - US
+      - ES
+      - OT
+
   - key: CT
     values:
       - CT

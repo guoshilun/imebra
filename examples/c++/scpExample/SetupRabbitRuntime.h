@@ -13,16 +13,9 @@
 #ifndef IMEBRA_SETUPRABBITRUNTIME_H
 #define IMEBRA_SETUPRABBITRUNTIME_H
 
-//
-//MessagePub:
-//exchange: Dicom.SCP
-//        routingKey: Dicom
-
-
-
-
 static std::vector<DicomTagConverter> modalityConverter;
 static std::vector<DicomTagConverter> examedBodyPartConverter;
+
 
 
 bool setupSpdlogRuntime() {
@@ -60,6 +53,9 @@ bool setupSpdlogRuntime() {
         auto defLogger = std::make_shared<spdlog::async_logger>(SCP_LOGGER_NAME, sinks.begin(), sinks.end(),
                                                                 spdlog::thread_pool(),
                                                                 spdlog::async_overflow_policy::block);
+
+
+
         spdlog::register_logger(defLogger);
 
 
@@ -200,6 +196,40 @@ void bindQueue(void *req) {
     uv_run(loop, UV_RUN_DEFAULT);
 }
 
+
+void bindExchage(void *req) {
+    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    uv_loop_init(loop);
+
+    DicomMessageHandler mqHandler(loop);
+    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::TcpConnection conn(&mqHandler, mqAddres);
+    AMQP::TcpChannel scpChannel(&conn);
+
+    RabbitMqBindExchangeInfo *exchangeMap = (RabbitMqBindExchangeInfo *) req;
+
+
+    scpChannel.bindExchange(exchangeMap->from, exchangeMap->to, exchangeMap->routingkey)
+            .onSuccess([&]() {
+                spdlog::info("bindExchange :{}->{} with Key:{} Success", exchangeMap->from, exchangeMap->to,
+                             exchangeMap->routingkey);
+
+            }).onError([&](const char *message) {
+                spdlog::error("bindExchange :{}->{} with Key:{} Success Failed With {}", exchangeMap->from,
+                              exchangeMap->to, exchangeMap->routingkey,
+                              message);
+            }).onFinalize([&] {
+                spdlog::debug("bindExchange :{}->{} with Key:{} Over And ClearResources :", exchangeMap->from,
+                              exchangeMap->to, exchangeMap->routingkey);
+
+                uv_stop(loop);
+                uv_loop_close(loop);
+                free(loop);
+            });
+    uv_run(loop, UV_RUN_DEFAULT);
+}
+
+
 std::string findMatchedModality(std::string cmod) {
     bool find = false;
     std::string result;
@@ -220,8 +250,9 @@ void setupRabbitDispatcher() {
 
     /// 查找符合要求的设备类型
 
+    std::string utf8 = u8"从当前目录./config.yaml 读取配置文件";
     spdlog::debug("setupRabbitRuntime  Begin");
-    spdlog::info("从当前目录./config.yaml 读取配置文件");
+    spdlog::info( utf8.c_str());
     YAML::Node config = YAML::LoadFile("./config.yaml");
     messagePubExchange = config["MessagePub"]["exchange"].as<std::string>();
     messagePubRoutingKey = config["MessagePub"]["routingKey"].as<std::string>();
@@ -232,10 +263,10 @@ void setupRabbitDispatcher() {
             std::string result = join(ct.values.begin(), ct.values.end(), ",");
             spdlog::info("ModalityConverter: {}=>{}", result, ct.key);
 
-            for (const auto& modality: ct.values) {
+            for (const auto &modality: ct.values) {
 
                 std::string mgx(modality.c_str());
-                transform(mgx.begin(),mgx.end(),mgx.begin(),::toupper);
+                transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
                 mapModality[mgx] = ct.key;
             }
         }
@@ -248,10 +279,10 @@ void setupRabbitDispatcher() {
             std::string result = join(bodypart.values.begin(), bodypart.values.end(), ",");
             spdlog::info("BodyPartConverter: {}=>{}", result, bodypart.key);
 
-            for (const auto& body: bodypart.values) {
+            for (const auto &body: bodypart.values) {
 
                 std::string mgx(body.c_str());
-                transform(mgx.begin(),mgx.end(),mgx.begin(),::toupper);
+                transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
 
                 // std::string tx = std::toupper(body, std::locale("zh_CN.utf8"));
                 mapBodyPart[mgx] = bodypart.key;
@@ -308,6 +339,23 @@ void setupRabbitDispatcher() {
             uv_thread_join(&t);
         }
     }
+
+
+    if(config["BindExchange"])
+    {
+        std::vector<RabbitMqBindExchangeInfo> bindExchange = config["BindExchange"].as<std::vector<RabbitMqBindExchangeInfo>>();
+        std::list<uv_thread_t> bindExchangeThreads;
+        size_t chgSize = bindExchange.size();
+        for (size_t index = 0; index < chgSize; index++) {
+            uv_thread_t ct;
+            uv_thread_create(&ct, bindExchage, &bindExchange[index]);
+            bindExchangeThreads.push_back(ct);
+        }
+        for (auto t: bindExchangeThreads) {
+            uv_thread_join(&t);
+        }
+    }
+    spdlog::flush_on( spdlog::level::info);
 
 }
 
