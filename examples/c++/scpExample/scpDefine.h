@@ -299,6 +299,7 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
             // Receive commands via the dimse service, which uses the scp association
             imebra::DimseService dimse(scp);
 
+            std::wcout <<L"DimseService构建完毕" << std::endl;
             // Receive commands until the association is closed
             for (;;) {
                 // Blocks until a command is received, throws EOF when the connection
@@ -356,7 +357,7 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
 
         catch (const imebra::StreamEOFError &error) {
             // The association has been closed during the association
-            spdlog::info("StreamEOFError {}", error.what());
+            spdlog::info("StreamEOFError: {}", error.what());
         }
         catch (const std::exception &e) {
             spdlog::error("错误：{}", e.what());
@@ -380,6 +381,10 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
             activeAssociations.erase(pScp);
         }
     });
+    if(dicomMessages.empty()){
+        return;
+    }
+
     spdlog::info("释放内存，发布消息");
     //----推送相关记录到消息队列
     ptr->publishCStoreMessage(dicomMessages);
