@@ -112,6 +112,11 @@ BindQueue:
         value: CT
         type: string
 
+      # -- 指定匹配规则，此规则仅仅对 queue 绑定的 Exchanger.Type= headers 有效 ，取值只能是 all | any 没有其它选项
+      - key: x-match
+        value: all
+        type: string
+
   - queuename: Dicom.DR
     exchange: Dicom.SCP.AI
     routingkey: Dicom.AI
@@ -120,12 +125,20 @@ BindQueue:
         value: DR
         type: string
 
+      - key: x-match
+        value: all
+        type: string
+
   - queuename: Dicom.BodyPartUnknow
     exchange: Dicom.SCP.AI
     routingkey: Dicom.AI
     arguments:
       - key: BodyPartExamined
         value: UNKNOW
+        type: string
+
+      - key: x-match
+        value: all
         type: string
 
 

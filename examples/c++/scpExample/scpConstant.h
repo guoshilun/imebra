@@ -7,43 +7,47 @@
 #include <vector>
 #include <list>
 #include <iostream>
+
 #ifndef IMEBRA_SCPCONSTANT_H
 #define IMEBRA_SCPCONSTANT_H
 
 
-static std::string messagePubExchange;
-static std::string messagePubRoutingKey;
-static std::map<std::string,std::string> mapModality;
-static std::map<std::string,std::string> mapBodyPart;
+class ScpConstant {
+protected:
+    ScpConstant();
 
-const char *MQ_ADDRESS = "amqp://root:root@localhost/imebra";
+public:
+    ScpConstant(const ScpConstant &) = delete;
+
+    ScpConstant(ScpConstant &&) = delete;
+
+    ScpConstant operator=(const ScpConstant &) = delete;
+
+public:
+    static constexpr const char *MQ_ADDRESS = "amqp://root:root@localhost/imebra";
+    static constexpr const char *FAILED = " Failed:";
+    static constexpr const char *CreateQueue = "create RabbitMqQueueInfo :";
+    static constexpr const char *ClearResource = "clear Resource ";
+    static constexpr const char *SCP_LOGGER_NAME = "scp-logger";
 
 
-const char *SUCCESS(" Success");
-const char *FAILED(" Failed:");
-const char *CreateQueue("create RabbitMqQueueInfo :");
-const char *ClearResource("clear Resource ");
+    /// 1分钟
+    static const size_t ONE_MINUTE = 60 * 1000;
 
+    static const size_t ONE_HOUR = 60 * ONE_MINUTE;
 
-const char *SCP_LOGGER_NAME("scp-logger");
-
-
-/// 1分钟
-const size_t ONE_MINUTE = 60 * 1000;
-
-const size_t ONE_HOUR = 60 * ONE_MINUTE;
-
-const size_t ONE_DAY = 24 * ONE_HOUR;
+    static const size_t ONE_DAY = 24 * ONE_HOUR;
 
 
 /// 5M
-const int SPDLOG_MAX_SIZE_SINGLE_FILE = 1048576 * 5;
+    static const int SPDLOG_MAX_SIZE_SINGLE_FILE = 1048576 * 5;
 
 /// 20
-const int SPDLOG_MAX_ROATING_FILES = 20;
+    static const int SPDLOG_MAX_ROATING_FILES = 20;
 
 /// 4
-const int SPDLOG_MAX_THREADS = 4;
+    static const int SPDLOG_MAX_THREADS = 4;
+};
 
 
 struct RabbitMqArgument {

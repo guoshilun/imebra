@@ -12,11 +12,12 @@
 #include <uv.h>
 #include "DicomMessageHandler.h"
 #include "DcmInfo.h"
-#include "SetupRabbitRuntime.h"
+#include "RuntimeConfig.h"
 #include "unistd.h"
 #include <sys/stat.h>
 #include <spdlog/spdlog.h>
 #include "scpConstant.h"
+
 // List of accepted abstract syntaxes
 const std::list<std::string> abstractSyntaxes{
         //  用于支持CEcho SCP 的传输语法
@@ -241,138 +242,21 @@ const std::list<std::string> transferSyntaxes
 /////  RabbitMQ  消息队列设置
 /////////////////////////////////////////////////////////////
 
-void setupDicomContexts(imebra::PresentationContexts &presentationContexts) {
+static void setupDicomContexts(imebra::PresentationContexts &presentationContexts) {
 
     for (const std::string &abstractSyntax: abstractSyntaxes) {
+
+
+        if (0 == strcasecmp(abstractSyntax.c_str(), "2.25.215425430857432966361489015284054781485")) {
+            std::wcout << L"Found :abstractSyntax:" << abstractSyntax.c_str() << std::endl;
+        }
+
         imebra::PresentationContext context(abstractSyntax);
         for (const std::string &transferSyntax: transferSyntaxes) {
             context.addTransferSyntax(transferSyntax);
+
         }
         presentationContexts.addPresentationContext(context);
-    }
-}
-
-
-void onCStoreCallback(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir) {
-
-
-    DcmInfo dcmInfo(payload);
-
-    std::string patientId = dcmInfo.getPatientId();
-    std::string studyUid = dcmInfo.getStudyUid();
-
-    std::string seriesUid = dcmInfo.getSeriesUid();
-    std::string sopInstUid = dcmInfo.getSopInstUid();
-    if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
-        spdlog::error(
-                "patientId， studyUid， sereisUid or sopInstUid   not exists or one of those are empty:[{},{},{},{}]",
-                patientId, studyUid, seriesUid, sopInstUid);
-        return;
-
-    }
-    // std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
-
-    std::stringstream ss;
-
-    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() << "/" << seriesUid.c_str() << "/";
-    std::string saveTo = ss.str();
-    ss.clear();
-
-    if (access(saveTo.c_str(), F_OK) != 0) {
-        std::string cmdText("mkdir -p \"" + saveTo + "\"");
-        int retur =  system(cmdText.c_str());
-        spdlog::debug("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
-    }
-
-    if (access(saveTo.c_str(), F_OK) != 0) {
-        spdlog::error("dir:{} denied access !", saveTo);
-        return;
-    }
-    std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
-    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
-    messages.insert(dcmInfo);
-}
-
-
-void outputDatasetTags(const imebra::DataSet &dataset, const std::wstring &prefix) {
-    // Get all the tags
-    imebra::tagsIds_t tags = dataset.getTags();
-
-    // Output all the tags
-    for (const imebra::TagId &tagId: tags) {
-        try {
-            std::wstring tagName = imebra::DicomDictionary::getUnicodeTagDescription(tagId);
-            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (" << tagName
-                       << L")" << std::endl;
-        }
-        catch (const imebra::DictionaryUnknownTagError &) {
-            std::wcout << prefix << L"Tag " << tagId.getGroupId() << L"," << tagId.getTagId() << L" (Unknown tag)"
-                       << std::endl;
-        }
-
-        imebra::Tag tag(dataset.getTag(tagId));
-
-        for (size_t itemId(0);; ++itemId) {
-            try {
-                imebra::DataSet sequence = tag.getSequenceItem(itemId);
-                std::wcout << prefix << L"  SEQUENCE " << itemId << std::endl;
-                outputDatasetTags(sequence, prefix + L"    ");
-            }
-            catch (const imebra::MissingDataElementError &) {
-                break;
-            }
-        }
-
-        for (size_t bufferId(0); bufferId != tag.getBuffersCount(); ++bufferId) {
-            imebra::ReadingDataHandler handler = tag.getReadingDataHandler(bufferId);
-            if (handler.getDataType() != imebra::tagVR_t::OW && handler.getDataType() != imebra::tagVR_t::OB) {
-                for (size_t scanHandler(0); scanHandler != handler.getSize(); ++scanHandler) {
-                    std::wcout << prefix << L"  buffer " << bufferId << L", position " << scanHandler << ":"
-                               << handler.getUnicodeString(scanHandler) << std::endl;
-                }
-            } else {
-                std::wcout << prefix << L"  Not shown: size " << handler.getSize() << " elements" << std::endl;
-            }
-
-        }
-    }
-}
-
-
-///
-/// \brief Calls outputDatasetTags to display both the command dataset and the
-///        payload dataset.
-///
-/// \param title   title to display before the datasets
-/// \param command DIMSE command containing the command and payload datasets
-///
-//////////////////////////////////////////////////////////////////////////////////////
-void outputCommandTags(const std::string &title, const imebra::DimseCommand &command) {
-    if (!title.empty()) {
-        std::wcout << std::endl;
-        std::wcout << std::endl;
-        std::wcout << title.c_str() << std::endl;
-        std::wcout << std::wstring(title.size(), L'*') << std::endl;
-        std::wcout << std::endl;
-    }
-
-    try {
-        // Get the header dataset
-        imebra::DataSet header = command.getCommandDataSet();
-        std::wcout << std::endl;
-        std::wcout << L"    HEADER:" << std::endl;
-        std::wcout << L"    -------" << std::endl;
-        outputDatasetTags(header, L"    ");
-
-        // Get the payload dataset
-        imebra::DataSet payload = command.getPayloadDataSet();
-        std::wcout << std::endl;
-        std::wcout << L"    PAYLOAD:" << std::endl;
-        std::wcout << L"    --------" << std::endl;
-        outputDatasetTags(payload, L"    ");
-    }
-    catch (const imebra::MissingItemError &) {
-        // We arrive here if the payload we request above does not exist.
     }
 }
 
@@ -390,11 +274,12 @@ static std::mutex lockActiveAssociations; // Lock the access to the associations
 /// \param aet       the SCP aet to communicate during the ACSE negotiation
 ///
 //////////////////////////////////////////////////////////////////////////////////////
-void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcmSaveDirectory) {
-
-    std::list<imebra::DataSet> cPayLoadQueue;
+void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcmSaveDirectory, RuntimeConfig *ptr) {
 
 
+    std::once_flag commandFlagOnlyOnce;
+    std::set<DcmInfo> dicomMessages;
+    imebra::AssociationSCP*  pScp= nullptr;
     try {
         // tcpStream represents the connected socket. Allocate a stream reader and a writer
         // to read and write on the connected socket
@@ -403,6 +288,7 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
 
         // The AssociationSCP constructor will negotiate the assocation
         imebra::AssociationSCP scp(aet, 1, 1, presentationContexts, readSCU, writeSCU, 0, 10);
+        pScp = &scp;
 
         {
             std::lock_guard<std::mutex> lock(lockActiveAssociations);
@@ -427,9 +313,20 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
                     {
 
                         imebra::CStoreCommand cstore = command.getAsCStoreCommand(); // Convert to cstore to retrieve cstore-specific data
-                        imebra::DataSet payload = cstore.getPayloadDataSet();
-                        cPayLoadQueue.push_back(payload);
-                        dimse.sendCommandOrResponse(imebra::CStoreResponse(cstore, imebra::dimseStatusCode_t::success));
+
+                        try {
+                            imebra::DataSet payload = cstore.getPayloadDataSet();
+                            ptr->perfermFileStorek(dicomMessages, payload, dcmSaveDirectory);
+                            dimse.sendCommandOrResponse(
+                                    imebra::CStoreResponse(cstore, imebra::dimseStatusCode_t::success));
+                        }
+                        catch (const imebra::MissingItemError &itemError) {
+                            spdlog::error("getPayloadDataSet and MissingItemError:{}", itemError.what());
+                            dimse.sendCommandOrResponse(
+                                    imebra::CStoreResponse(cstore, imebra::dimseStatusCode_t::unableToProcess));
+                        }
+
+
                     }
                         break;
 
@@ -456,36 +353,37 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
                 }
             }
         }
-        catch (const imebra::StreamEOFError &) {
+
+        catch (const imebra::StreamEOFError &error) {
             // The association has been closed during the association
+            spdlog::info("StreamEOFError {}", error.what());
         }
         catch (const std::exception &e) {
-            spdlog::error("错误：{}" ,e.what());
+            spdlog::error("错误：{}", e.what());
         }
 
-        {
-            std::lock_guard<std::mutex> lock(lockActiveAssociations);
-            activeAssociations.erase(&scp);
-        }
 
     }
-    catch (const imebra::StreamEOFError &) {
-
+    catch (const imebra::AcseCorruptedMessageError &acseCorruptedMessageError) {
+        spdlog::error("AcseCorruptedMessageError错误：{}", acseCorruptedMessageError.what());
+    }
+    catch (const imebra::StreamError &streamError) {
+        spdlog::info("streamError {}", streamError.what());
     }
     catch (const std::exception &e) {
         std::wcout << e.what() << std::endl;
     }
-
-    //---写入磁盘，并填充消息体
-    std::set<DcmInfo> dicomMessages;
-    std::list<imebra::DataSet>::iterator it = cPayLoadQueue.begin();
-    for (; it != cPayLoadQueue.end(); it++) {
-        onCStoreCallback(dicomMessages, *it, dcmSaveDirectory);
-    }
-    //---这个东西早掉释放，可以多余点内存
-    cPayLoadQueue.clear();
+    std::call_once( commandFlagOnlyOnce, [&]()
+    {
+        std::lock_guard<std::mutex> lock(lockActiveAssociations);
+        if(pScp != nullptr){
+            activeAssociations.erase(pScp);
+        }
+    });
+    spdlog::info("释放内存，发布消息");
     //----推送相关记录到消息队列
-    onMessageCallback(dicomMessages);
+    ptr->publishCStoreMessage(dicomMessages);
+
 
 }
 

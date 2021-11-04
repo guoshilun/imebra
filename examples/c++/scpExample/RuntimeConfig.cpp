@@ -1,3 +1,10 @@
+//
+// Created by dhz on 2021/11/1.
+//
+
+#include "RuntimeConfig.h"
+#include "DicomMessageHandler.h"
+#include "scpConstant.h"
 #include <utility>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
@@ -6,81 +13,32 @@
 #include <spdlog/async.h>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
-#include "scpConstant.h"
-// Created by dhz on 2021/10/25.
-//
-
-#ifndef IMEBRA_SETUPRABBITRUNTIME_H
-#define IMEBRA_SETUPRABBITRUNTIME_H
-
-static std::vector<DicomTagConverter> modalityConverter;
-static std::vector<DicomTagConverter> examedBodyPartConverter;
 
 
+RuntimeConfig::RuntimeConfig() {
 
-bool setupSpdlogRuntime() {
-    bool createLog(false);
-    try {
-        //////////////////////////////////////////////////
-        ///  spdlog 参考：http://www.mianshigee.com/project/spdlog
-        ///  低于设置级别的日志将不会被输出。各level排序，数值越大级别越高：
-        ///    trace =  0,
-        ///    debug =1,
-        ///    info = 2,
-        ///    warn = 3,
-        ///    err = 4,
-        ///    critical = 5,
-        ///    off = 6,
-        ///    n_levels=7
-        //////////////////////////////////////////////////
-        spdlog::init_thread_pool(8192, SPDLOG_MAX_THREADS);
-        ///---------------------滚动日志
-
-
-        ///--------------全部输出
-        auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        stdout_sink->set_level(spdlog::level::debug);
-        stdout_sink->set_pattern("[%^%l%$] %v");
-
-        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/info.txt",
-                                                                                    SPDLOG_MAX_SIZE_SINGLE_FILE,
-                                                                                    SPDLOG_MAX_ROATING_FILES);
-        rotating_sink->set_level(spdlog::level::info);
-        rotating_sink->set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
-
-
-        std::vector<spdlog::sink_ptr> sinks{stdout_sink, rotating_sink};
-        auto defLogger = std::make_shared<spdlog::async_logger>(SCP_LOGGER_NAME, sinks.begin(), sinks.end(),
-                                                                spdlog::thread_pool(),
-                                                                spdlog::async_overflow_policy::block);
-
-
-
-        spdlog::register_logger(defLogger);
-
-
-//            spdlog::logger logger("multi_sink", {stdout_sink, rotating_sink});
-
-//           std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
-        spdlog::set_level(spdlog::level::trace); // Set global log level to debug
-        spdlog::set_default_logger(defLogger);
-        //---每隔60秒刷新一下日志
-        spdlog::flush_every(std::chrono::seconds(60));
-        spdlog::set_error_handler(
-                [](const std::string &msg) { spdlog::get("console")->error("*** LOGGER ERROR ***: {}", msg); });
-
-
-        createLog = true;
-    }
-    catch (const spdlog::spdlog_ex &ex) {
-        std::wcout << L"Log init failed: " << ex.what() << std::endl;
-    }
-    return createLog;
 }
 
-void fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP::Table &table) {
+RuntimeConfig::~RuntimeConfig() {
+    modalityConverter.empty();
+    examedBodyPartConverter.empty();
+}
+
+RuntimeConfig::RuntimeConfig(const RuntimeConfig &other) {
+    for (auto ax: other.modalityConverter) {
+        modalityConverter.push_back(ax);
+    }
+
+    for (auto ab: other.examedBodyPartConverter) {
+        examedBodyPartConverter.push_back(ab);
+    }
+}
 
 
+void RuntimeConfig::fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP::Table &table) {
+    if (args.empty()) {
+        return;
+    }
     for (auto a: args) {
         if (a.type == "num") {
             table[a.key] = std::stoi(a.value);
@@ -92,13 +50,11 @@ void fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP::Table &table) 
     }
 }
 
-
-void createQueue(void *req) {
+void RuntimeConfig::createQueue(void *req) {
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
-
     DicomMessageHandler mqHandler(loop);
-    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::Address mqAddres(ScpConstant::MQ_ADDRESS);
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
@@ -114,19 +70,19 @@ void createQueue(void *req) {
             }).onFinalize([&] {
                 spdlog::debug("create Queue: {} Over And Clear loop Resourse", cqueue->name);
                 uv_stop(loop);
-                uv_loop_close(loop);
-                free(loop);
+
             });
     uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
+    free(loop);
 }
 
-
-void createExchage(void *req) {
+void RuntimeConfig::createExchage(void *req) {
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
-    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::Address mqAddres(ScpConstant::MQ_ADDRESS);
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
@@ -154,19 +110,19 @@ void createExchage(void *req) {
                 spdlog::debug("create Exchange:{} Over And clear loop Resourse:", exchangeInfo->name);
 
                 uv_stop(loop);
-                uv_loop_close(loop);
-                free(loop);
+
             });
     uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
+    free(loop);
 }
 
-
-void bindQueue(void *req) {
+void RuntimeConfig::bindQueue(void *req) {
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
-    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::Address mqAddres(ScpConstant::MQ_ADDRESS);
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
@@ -189,20 +145,20 @@ void bindQueue(void *req) {
                               bindingInfo->exchange);
 
                 uv_stop(loop);
-                uv_loop_close(loop);
-                free(loop);
+
             });
 
     uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
+    free(loop);
 }
 
-
-void bindExchage(void *req) {
+void RuntimeConfig::bindExchage(void *req) {
     uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
-    AMQP::Address mqAddres(MQ_ADDRESS);
+    AMQP::Address mqAddres(ScpConstant::MQ_ADDRESS);
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
@@ -223,36 +179,121 @@ void bindExchage(void *req) {
                               exchangeMap->to, exchangeMap->routingkey);
 
                 uv_stop(loop);
-                uv_loop_close(loop);
-                free(loop);
+
             });
     uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
+    free(loop);
 }
 
+void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir) {
+    DcmInfo dcmInfo(payload);
 
-std::string findMatchedModality(std::string cmod) {
-    bool find = false;
-    std::string result;
-    transform(cmod.begin(), cmod.end(), cmod.begin(), ::toupper);
-    for (auto modality: modalityConverter) {
-        std::vector<std::string>::iterator iter = std::find(modality.values.begin(), modality.values.end(), cmod);
-        if (iter != modality.values.end()) {
-            result = modality.key;
-            find = true;
-            break;
-        }
+    std::string patientId = dcmInfo.getPatientId();
+    std::string studyUid = dcmInfo.getStudyUid();
+
+    std::string seriesUid = dcmInfo.getSeriesUid();
+    std::string sopInstUid = dcmInfo.getSopInstUid();
+    if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
+        spdlog::error(
+                "patientId， studyUid， sereisUid or sopInstUid   not exists or one of those are empty:[{},{},{},{}]",
+                patientId, studyUid, seriesUid, sopInstUid);
+        return;
+
     }
-    return find ? result : cmod;
+    // std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
+
+    std::stringstream ss;
+
+    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() << "/" << seriesUid.c_str() << "/";
+    std::string saveTo = ss.str();
+    ss.clear();
+
+    if (access(saveTo.c_str(), F_OK) != 0) {
+        std::string cmdText("mkdir -p \"" + saveTo + "\"");
+        int retur = system(cmdText.c_str());
+        spdlog::debug("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
+    }
+
+    if (access(saveTo.c_str(), F_OK) != 0) {
+        spdlog::error("dir:{} denied access !", saveTo);
+        return;
+    }
+    std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
+    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
+    messages.insert(dcmInfo);
 }
 
+bool RuntimeConfig::setupSpdlogRuntime() {
 
-void setupRabbitDispatcher() {
+    bool createLog(false);
+    try {
+        //////////////////////////////////////////////////
+        ///  spdlog 参考：http://www.mianshigee.com/project/spdlog
+        ///  低于设置级别的日志将不会被输出。各level排序，数值越大级别越高：
+        ///    trace =  0,
+        ///    debug =1,
+        ///    info = 2,
+        ///    warn = 3,
+        ///    err = 4,
+        ///    critical = 5,
+        ///    off = 6,
+        ///    n_levels=7
+        //////////////////////////////////////////////////
+        spdlog::init_thread_pool(8192, ScpConstant::SPDLOG_MAX_THREADS);
+        ///---------------------滚动日志
 
+
+        ///--------------全部输出
+        auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        stdout_sink->set_level(spdlog::level::debug);
+        stdout_sink->set_pattern("[%^%l%$] %v");
+
+        size_t maxSize(ScpConstant::SPDLOG_MAX_SIZE_SINGLE_FILE);
+        size_t files(ScpConstant::SPDLOG_MAX_ROATING_FILES);
+
+        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/info.txt",
+                                                                                    maxSize,
+                                                                                    files);
+        rotating_sink->set_level(spdlog::level::info);
+        rotating_sink->set_pattern("[%H:%M:%S] [%^-%L-%$] %v");
+
+
+        std::string loggerName(ScpConstant::SCP_LOGGER_NAME);
+        std::vector<spdlog::sink_ptr> sinks{stdout_sink, rotating_sink};
+        auto defLogger = std::make_shared<spdlog::async_logger>(loggerName, sinks.begin(), sinks.end(),
+                                                                spdlog::thread_pool(),
+                                                                spdlog::async_overflow_policy::block);
+
+
+        spdlog::register_logger(defLogger);
+
+
+//            spdlog::logger logger("multi_sink", {stdout_sink, rotating_sink});
+
+//           std::shared_ptr<spdlog::logger> defLogger = std::make_shared<spdlog::logger>(logger);
+        spdlog::set_level(spdlog::level::trace); // Set global log level to debug
+        spdlog::set_default_logger(defLogger);
+        //---每隔60秒刷新一下日志
+        spdlog::flush_every(std::chrono::seconds(60));
+        spdlog::set_error_handler(
+                [](const std::string &msg) { spdlog::get("console")->error("*** LOGGER ERROR ***: {}", msg); });
+
+
+        createLog = true;
+    }
+    catch (const spdlog::spdlog_ex &ex) {
+        std::wcout << L"Log init failed: " << ex.what() << std::endl;
+    }
+    return createLog;
+}
+
+void RuntimeConfig::setupRabbitDispatcher() {
     /// 查找符合要求的设备类型
 
     std::string utf8 = u8"从当前目录./config.yaml 读取配置文件";
     spdlog::debug("setupRabbitRuntime  Begin");
-    spdlog::info( utf8.c_str());
+    spdlog::info(utf8.c_str());
     YAML::Node config = YAML::LoadFile("./config.yaml");
     messagePubExchange = config["MessagePub"]["exchange"].as<std::string>();
     messagePubRoutingKey = config["MessagePub"]["routingKey"].as<std::string>();
@@ -341,8 +382,7 @@ void setupRabbitDispatcher() {
     }
 
 
-    if(config["BindExchange"])
-    {
+    if (config["BindExchange"]) {
         std::vector<RabbitMqBindExchangeInfo> bindExchange = config["BindExchange"].as<std::vector<RabbitMqBindExchangeInfo>>();
         std::list<uv_thread_t> bindExchangeThreads;
         size_t chgSize = bindExchange.size();
@@ -355,38 +395,63 @@ void setupRabbitDispatcher() {
             uv_thread_join(&t);
         }
     }
-    spdlog::flush_on( spdlog::level::info);
+
 
 }
 
-void onMessageCallback(std::set<DcmInfo> &dicomMessages) {
-    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
-    uv_loop_init(cLoop);
-    DicomMessageHandler jpHandler(cLoop);
-    AMQP::Address jpAddr(MQ_ADDRESS);
-    AMQP::TcpConnection jpConn(&jpHandler, jpAddr);
-    AMQP::TcpChannel channel(&jpConn);
-    channel.startTransaction();
-    for (DcmInfo cmsg: dicomMessages) {
-        std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage(mapModality, mapBodyPart);
-        channel.publish(messagePubExchange, messagePubRoutingKey, *envelope.get());
+
+void RuntimeConfig::publishCStoreMessage(std::set<DcmInfo> &dicomMessages) {
+    if (dicomMessages.empty()) {
+        spdlog::warn("onMessageCallback with EmptyArguments");
+        return;
     }
-    channel.commitTransaction().onSuccess([&dicomMessages]() {
-        spdlog::info("Commit Messages：{}  with {}", dicomMessages.size(), SUCCESS);
-    }).onError([&dicomMessages, &channel](const char *msg) {
-        spdlog::error("Commit Messages：{} with {}", dicomMessages.size(), msg);
-        channel.rollbackTransaction();
-    }).onFinalize([&channel, &dicomMessages, &cLoop]() {
-        spdlog::debug("Commit Messages OverClear Resource");
-        dicomMessages.clear();
-        channel.close();
-        uv_stop(cLoop);
-    });
-    uv_run(cLoop, UV_RUN_DEFAULT);
-    uv_loop_close(cLoop);
-    free(cLoop);
-    spdlog::debug("onMessageCallback execute Over !");
+
+    spdlog::debug("onMessageCallback with EmptyArguments begin：{}", dicomMessages.size());
+    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    if (cLoop == nullptr) {
+        spdlog::error("onMessageCallback 申请内存失败");
+        return;
+    }
+    std::once_flag onlyOne;
+    try {
+
+
+        uv_loop_init(cLoop);
+        DicomMessageHandler jpHandler(cLoop);
+        AMQP::Address jpAddr(ScpConstant::MQ_ADDRESS);
+        AMQP::TcpConnection jpConn(&jpHandler, jpAddr);
+        AMQP::TcpChannel channel(&jpConn);
+        channel.startTransaction();
+        for (DcmInfo cmsg: dicomMessages) {
+            std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage(mapModality, mapBodyPart);
+            channel.publish(messagePubExchange, messagePubRoutingKey, *envelope.get());
+        }
+        channel.commitTransaction().onSuccess([&dicomMessages]() {
+            spdlog::info("Commit Messages：{}  with  Success", dicomMessages.size());
+        }).onError([&dicomMessages, &channel](const char *msg) {
+            spdlog::error("Commit Messages：{} with  {}", dicomMessages.size(), msg);
+            channel.rollbackTransaction();
+        }).onFinalize([&channel, &dicomMessages, &cLoop]() {
+            spdlog::debug("Commit Messages OverClear Resource");
+            uv_stop(cLoop);
+        });
+        uv_run(cLoop, UV_RUN_DEFAULT);
+
+        std::call_once(onlyOne, [&cLoop]() {
+            if (cLoop) {
+                spdlog::debug("onMessageCallback release cLoop");
+                uv_loop_close(cLoop);
+                free(cLoop);
+                cLoop = nullptr;
+            }
+        });
+
+        spdlog::debug("onMessageCallback with EmptyArguments End");
+    }
+
+    catch (const std::exception &exception) {
+
+        spdlog::debug("onMessageCallback with EmptyArguments End：{}", exception.what());
+    };
+
 }
-
-
-#endif //IMEBRA_SETUPRABBITRUNTIME_H

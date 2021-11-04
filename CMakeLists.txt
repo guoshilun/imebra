@@ -424,6 +424,20 @@ if (NOT IOS)
 
     target_link_libraries(dicomDirItems imebra)
 
+    ##############################################
+    #
+    # dicomValidate  example
+    #
+    ##############################################
+    file(GLOB dicomValidate_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/dicomValidate/*.cpp")
+
+    # Add the source files to the project
+    #------------------------------------
+    add_executable(dicomValidate ${dicomValidate_sources} )
+
+    target_link_libraries(dicomValidate imebra  -lpthread -ldl )
+
+
 
     ##############################################
     #
@@ -441,7 +455,7 @@ if (NOT IOS)
 
     file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
             DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
-    add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/SetupRabbitRuntime.h examples/c++/scpExample/scpConstant.h)
+    add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/scpConstant.h examples/c++/scpExample/RuntimeConfig.cpp examples/c++/scpExample/RuntimeConfig.h)
     target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp)
 
 endif ()

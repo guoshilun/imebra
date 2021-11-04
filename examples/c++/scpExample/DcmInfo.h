@@ -31,19 +31,23 @@ public:
 
 
 
-    std::string getPatientId();
+    std::string getPatientId() const ;
 
-    std::string getStudyUid();
+    std::string getStudyUid() const;
 
-    std::string getSeriesUid();
+    std::string getSeriesUid() const;
 
-    std::string getSopInstUid();
+    std::string getSopInstUid() const;
 
-    std::string getThickness();
+    std::string getThickness() const;
 
-    std::string getModality();
+    std::string getModality() const;
 
-    std::string getExamPart();
+    std::string getExamPart() const;
+
+    std::string getUnkonwn() const {
+        return  UNKOWN;
+    }
 
     std::shared_ptr<AMQP::Envelope> createMessage(std::map<std::string,std::string>& modalityMap, std::map<std::string,std::string>& bodyPartMap);
 
@@ -58,6 +62,8 @@ private:
     std::string mThickness;
     std::string mModality;
     std::string mExamPart;
+private:
+    const char* UNKOWN="UNKOWN";
 
 
 };

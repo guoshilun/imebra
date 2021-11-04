@@ -34,31 +34,31 @@ DcmInfo::~DcmInfo() noexcept {
 
 }
 
-std::string DcmInfo::getSopInstUid() {
+std::string DcmInfo::getSopInstUid() const {
     return mSopInstUid;
 }
 
-std::string DcmInfo::getPatientId() {
+std::string DcmInfo::getPatientId() const {
     return mPatientId;
 }
 
-std::string DcmInfo::getExamPart() {
+std::string DcmInfo::getExamPart() const {
     return mExamPart;
 }
 
-std::string DcmInfo::getModality() {
+std::string DcmInfo::getModality() const{
     return mModality;
 }
 
-std::string DcmInfo::getThickness() {
+std::string DcmInfo::getThickness() const {
     return mThickness;
 }
 
-std::string DcmInfo::getSeriesUid() {
+std::string DcmInfo::getSeriesUid()  const{
     return mSeriesUid;
 }
 
-std::string DcmInfo::getStudyUid() {
+std::string DcmInfo::getStudyUid()  const {
     return mStudyUid;
 }
 
@@ -84,9 +84,12 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     ptr.get()->setDeliveryMode(2);
     ptr.get()->setContentEncoding("utf-8");
     ptr.get()->setContentType("text/plain");
+
+//    请注意，以字符串x-开头的标头 将不用于评估匹配项。
+
     AMQP::Table messageHeaders;
-    messageHeaders["xModality"] = mModality;
-    messageHeaders["xBodyPartExamined"] = mExamPart;
+    messageHeaders["x-Modality"] = mModality;
+    messageHeaders["x-BodyPartExamined"] = mExamPart;
     // std::string tx = std::toupper(mModality, std::locale("zh_CN.utf8"));
     {
         std::string mgx(mModality);
@@ -94,7 +97,7 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
         if (0 != mapModality.count(mgx)) {
             messageHeaders["Modality"] = mapModality[mgx];
         } else {
-            messageHeaders["Modality"] = "UNKOWN";
+            messageHeaders["Modality"] = UNKOWN;
             spdlog::warn("Modality:{} NOT MAPPED", mgx);
         }
     }
@@ -105,12 +108,10 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
         if (0 != mapBodyPart.count(bp)) {
             messageHeaders["BodyPartExamined"] = mapBodyPart[bp];
         } else {
-            messageHeaders["BodyPartExamined"] = "UNKOWN";
+            messageHeaders["BodyPartExamined"] =  UNKOWN ;
             spdlog::warn("BodyPartExamed:{} NOT MAPPED", bp);
         }
     }
-
-
     messageHeaders["Thickness"] = mThickness;
 
     ptr.get()->setHeaders(messageHeaders);

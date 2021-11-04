@@ -23,7 +23,7 @@
 #include  <unistd.h>
 #include <condition_variable>
 #include "scpDefine.h"
-#include "SetupRabbitRuntime.h"
+#include "RuntimeConfig.h"
 #include <yaml-cpp/node/parse.h>
 #include <fstream>
 // When an association is created then its address is inserted
@@ -42,10 +42,12 @@
 ///
 //////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
+
+
+
     std::ios::sync_with_stdio(false);
     std::locale lc("zh_CN.UTF-8");
     std::locale::global(lc);
-    std::cout.imbue(lc);
     std::wcout.imbue(lc);
 
     try {
@@ -75,27 +77,36 @@ int main(int argc, char *argv[]) {
         }
 
 
-        bool createLog = setupSpdlogRuntime();
+        RuntimeConfig  runtimeConfig;
+        std::shared_ptr<RuntimeConfig>  configPtr = std::make_shared<RuntimeConfig>( runtimeConfig);
+
+
+        bool createLog = RuntimeConfig::setupSpdlogRuntime();
         if (!createLog) {
             return 0;
         }
-        setupRabbitDispatcher();
+        configPtr.get()->setupRabbitDispatcher();
 
         std::mutex cv_m;
         std::unique_lock<std::mutex> lk(cv_m);
         std::condition_variable cv;
         std::string port(argv[1]);
         std::string aet(argv[2]);
+
+
         setupDicomContexts(presentationContexts);
+
 
         // Create a listening socket bound to the port in the first argument
         imebra::TCPPassiveAddress listeningAddress("", port);
         imebra::TCPListener listenForConnections(listeningAddress);
 
 
+
         // Listen in a lambda execute in another thread
         std::thread listeningThread(
-                [&listenForConnections, &aet, &savedDirectory]() {
+                [&listenForConnections, &aet, &savedDirectory,&configPtr]() {
+                    std::once_flag  connectionFlag;
                     try {
                         for (;;) {
 
@@ -104,7 +115,7 @@ int main(int argc, char *argv[]) {
                             // Blocks until the TCPListener is terminated (throws EOF) or until a connection arrives
                             imebra::TCPStream newTCPStream = listenForConnections.waitForConnection();
                             // Launch a thread that processes the dimse commands on the new connection
-                            std::thread commandThread(dimseCommands, newTCPStream, aet, savedDirectory);
+                            std::thread commandThread(dimseCommands, newTCPStream, aet, savedDirectory, configPtr.get());
 
                             // We detach the thread, so we can forget about it.
                             commandThread.detach();
@@ -117,14 +128,12 @@ int main(int argc, char *argv[]) {
                         std::wcout << e.what() << std::endl;
                     }
 
-                    // Abort all open associations
-                    {
+                    std::call_once(connectionFlag,[&]() {   // Abort all open associations
                         std::lock_guard<std::mutex> lock(lockActiveAssociations);
                         for (imebra::AssociationBase *pAssociation: activeAssociations) {
                             pAssociation->abort();
                         }
-
-                    }
+                    });
 
                 });
 
