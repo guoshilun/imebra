@@ -456,7 +456,7 @@ if (NOT IOS)
     file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
             DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources} examples/c++/scpExample/DicomMessageHandler.h examples/c++/scpExample/DcmInfo.cpp examples/c++/scpExample/DcmInfo.h examples/c++/scpExample/scpConstant.h examples/c++/scpExample/RuntimeConfig.cpp examples/c++/scpExample/RuntimeConfig.h)
-    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp)
+    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
 
 endif ()
 

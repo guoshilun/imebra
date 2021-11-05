@@ -4,8 +4,9 @@
 
 #include "DcmInfo.h"
 #include <spdlog/spdlog.h>
+#include <zlib.h>
 
-DcmInfo::DcmInfo(const imebra::DataSet &payload) {
+DcmInfo::DcmInfo(const imebra::DataSet &payload) :mInstanceNumber(1) {
 
     mPatientId = payload.getString(
             imebra::TagId(imebra::tagId_t::PatientID_0010_0020), 0, "");
@@ -27,6 +28,9 @@ DcmInfo::DcmInfo(const imebra::DataSet &payload) {
 
     mExamPart = payload.getString(
             imebra::TagId(imebra::tagId_t::BodyPartExamined_0018_0015), 0, "");
+
+    mInstanceNumber = payload.getInt16(
+            imebra::TagId(imebra::tagId_t::InstanceNumber_0020_0013), 0, 1);
 
 }
 
@@ -70,7 +74,10 @@ DcmInfo::DcmInfo(const DcmInfo &that) :
         mSeriesUid(that.mSeriesUid),
         mThickness(that.mThickness),
         mModality(that.mModality),
-        mExamPart(that.mExamPart) {
+        mExamPart(that.mExamPart),
+        mInstanceNumber(that.mInstanceNumber)
+
+        {
 }
 
 bool DcmInfo::operator<(const DcmInfo &rhs) const {
@@ -117,6 +124,17 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     ptr.get()->setHeaders(messageHeaders);
 
     return ptr;
+}
+
+std::string DcmInfo::getShortCrcCode() const {
+    if(mStudyUid.empty() || mSeriesUid.empty()){
+        uLong crcCode =  crc32(0x80000000, NULL,0 );
+        return  std::to_string(crcCode);
+    } else {
+        uLong crcCode =  crc32(0x80000000, reinterpret_cast<const Bytef *>( mStudyUid.c_str()),(uInt) mStudyUid.size() );
+        crcCode =  crc32(crcCode, reinterpret_cast<const Bytef *>( mSeriesUid.c_str()), (uInt)mSeriesUid.size() );
+        return  std::to_string(crcCode);
+    }
 }
 
 //DcmInfo &DcmInfo::operator=(const DcmInfo &a) {

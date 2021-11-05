@@ -13,7 +13,7 @@
 #include <spdlog/async.h>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
-
+#include <zlib.h>
 
 RuntimeConfig::RuntimeConfig() {
 
@@ -204,11 +204,8 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
     // std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
 
     std::stringstream ss;
-
-    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() << "/" << seriesUid.c_str() << "/";
+    ss << dcmStoreDir << patientId.c_str() << "/" << dcmInfo.getShortCrcCode()  << "/";
     std::string saveTo = ss.str();
-    ss.clear();
-
     if (access(saveTo.c_str(), F_OK) != 0) {
         std::string cmdText("mkdir -p \"" + saveTo + "\"");
         int retur = system(cmdText.c_str());
@@ -217,11 +214,12 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
 
     if (access(saveTo.c_str(), F_OK) != 0) {
         spdlog::error("dir:{} denied access !", saveTo);
-        return;
+    } else {
+        ss << sopInstUid <<".dcm";
+        imebra::CodecFactory::save(payload, ss.str(), imebra::codecType_t::dicom);
+        messages.insert(dcmInfo);
     }
-    std::string dcmSavePath(saveTo + sopInstUid + ".dcm");
-    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
-    messages.insert(dcmInfo);
+    ss.clear();
 }
 
 bool RuntimeConfig::setupSpdlogRuntime() {

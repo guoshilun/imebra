@@ -49,6 +49,11 @@ public:
         return  UNKOWN;
     }
 
+    std::string getShortCrcCode() const ;
+    int  getInstanceNumber() const {
+        return  mInstanceNumber;
+    }
+
     std::shared_ptr<AMQP::Envelope> createMessage(std::map<std::string,std::string>& modalityMap, std::map<std::string,std::string>& bodyPartMap);
 
     bool operator<(const DcmInfo &rhs) const;
@@ -62,6 +67,7 @@ private:
     std::string mThickness;
     std::string mModality;
     std::string mExamPart;
+    int     mInstanceNumber;
 private:
     const char* UNKOWN="UNKOWN";
 
