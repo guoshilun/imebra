@@ -6,7 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <zlib.h>
 
-DcmInfo::DcmInfo(const imebra::DataSet &payload) :mInstanceNumber(1) {
+DcmInfo::DcmInfo(const imebra::DataSet &payload) : mInstanceNumber(1) {
 
     mPatientId = payload.getString(
             imebra::TagId(imebra::tagId_t::PatientID_0010_0020), 0, "");
@@ -32,6 +32,10 @@ DcmInfo::DcmInfo(const imebra::DataSet &payload) :mInstanceNumber(1) {
     mInstanceNumber = payload.getInt16(
             imebra::TagId(imebra::tagId_t::InstanceNumber_0020_0013), 0, 1);
 
+
+    computeCrc();
+
+
 }
 
 DcmInfo::~DcmInfo() noexcept {
@@ -50,7 +54,7 @@ std::string DcmInfo::getExamPart() const {
     return mExamPart;
 }
 
-std::string DcmInfo::getModality() const{
+std::string DcmInfo::getModality() const {
     return mModality;
 }
 
@@ -58,11 +62,11 @@ std::string DcmInfo::getThickness() const {
     return mThickness;
 }
 
-std::string DcmInfo::getSeriesUid()  const{
+std::string DcmInfo::getSeriesUid() const {
     return mSeriesUid;
 }
 
-std::string DcmInfo::getStudyUid()  const {
+std::string DcmInfo::getStudyUid() const {
     return mStudyUid;
 }
 
@@ -75,9 +79,9 @@ DcmInfo::DcmInfo(const DcmInfo &that) :
         mThickness(that.mThickness),
         mModality(that.mModality),
         mExamPart(that.mExamPart),
-        mInstanceNumber(that.mInstanceNumber)
+        mInstanceNumber(that.mInstanceNumber) {
+     computeCrc();
 
-        {
 }
 
 bool DcmInfo::operator<(const DcmInfo &rhs) const {
@@ -93,10 +97,12 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     ptr.get()->setContentType("text/plain");
 
 //    请注意，以字符串x-开头的标头 将不用于评估匹配项。
-
     AMQP::Table messageHeaders;
     messageHeaders["x-Modality"] = mModality;
     messageHeaders["x-BodyPartExamined"] = mExamPart;
+    messageHeaders["x-PatientId"] = mPatientId;
+    messageHeaders["x-DirName"] = this->getShortCrcCode();
+    messageHeaders["x-InstNum"] = mInstanceNumber;
     // std::string tx = std::toupper(mModality, std::locale("zh_CN.utf8"));
     {
         std::string mgx(mModality);
@@ -115,26 +121,27 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
         if (0 != mapBodyPart.count(bp)) {
             messageHeaders["BodyPartExamined"] = mapBodyPart[bp];
         } else {
-            messageHeaders["BodyPartExamined"] =  UNKOWN ;
+            messageHeaders["BodyPartExamined"] = UNKOWN;
             spdlog::warn("BodyPartExamed:{} NOT MAPPED", bp);
         }
     }
     messageHeaders["Thickness"] = mThickness;
-
     ptr.get()->setHeaders(messageHeaders);
 
     return ptr;
 }
 
 std::string DcmInfo::getShortCrcCode() const {
-    if(mStudyUid.empty() || mSeriesUid.empty()){
-        uLong crcCode =  crc32(0x80000000, NULL,0 );
-        return  std::to_string(crcCode);
-    } else {
-        uLong crcCode =  crc32(0x80000000, reinterpret_cast<const Bytef *>( mStudyUid.c_str()),(uInt) mStudyUid.size() );
-        crcCode =  crc32(crcCode, reinterpret_cast<const Bytef *>( mSeriesUid.c_str()), (uInt)mSeriesUid.size() );
-        return  std::to_string(crcCode);
-    }
+
+    return std::to_string(_crcCode);
+}
+
+void DcmInfo::computeCrc() {
+
+    uLong crcCode = crc32(0x80000000, reinterpret_cast<const Bytef *>( mStudyUid.c_str()),
+                          (uInt) mStudyUid.size());
+    _crcCode = crc32(crcCode, reinterpret_cast<const Bytef *>( mSeriesUid.c_str()), (uInt) mSeriesUid.size());
+
 }
 
 //DcmInfo &DcmInfo::operator=(const DcmInfo &a) {

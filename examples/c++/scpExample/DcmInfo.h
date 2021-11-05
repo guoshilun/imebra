@@ -58,6 +58,11 @@ public:
 
     bool operator<(const DcmInfo &rhs) const;
 
+protected:
+
+    void computeCrc();
+
+
 private:
 
     std::string mSopInstUid;
@@ -67,6 +72,7 @@ private:
     std::string mThickness;
     std::string mModality;
     std::string mExamPart;
+    ulong   _crcCode;
     int     mInstanceNumber;
 private:
     const char* UNKOWN="UNKOWN";
