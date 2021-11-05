@@ -306,11 +306,6 @@ public:
     ///////////////////////////////////////////////////////////////////////////////
     void setPatientName(size_t index, const PatientName& patientName);
 
-    /// \brief 在写入TAG值的时候，不校验
-    ///
-    ///////////////////////////////////////////////////////////////////////////////
-    void disableValidateSetOperation();
-
 #ifndef SWIG // Use UTF8 strings only with SWIG
 
     /// \brief Write a UnicodePatientName value.
@@ -332,7 +327,9 @@ private:
     friend const std::shared_ptr<implementation::handlers::writingDataHandler>& getWritingDataHandlerImplementation(const WritingDataHandler& writingHandler);
     std::shared_ptr<implementation::handlers::writingDataHandler> m_pDataHandler;
 #endif
-};
+
+        void disableValidateSetOperation();
+    };
 
 }
 

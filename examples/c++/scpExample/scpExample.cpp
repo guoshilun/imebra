@@ -125,6 +125,7 @@ int main(int argc, char *argv[]) {
                     }
                     catch (const std::exception &e) {
                         // An error occurred. Print it out.
+                        spdlog::error( "listeningThread 运行时错误:{}" ,e.what());
                         std::wcout << e.what() << std::endl;
                     }
 

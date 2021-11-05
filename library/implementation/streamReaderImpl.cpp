@@ -290,7 +290,7 @@ size_t streamReader::readSome(std::uint8_t* pBuffer, size_t bufferLength)
                 bufferLength -= readBytes;
                 if(readBytes == 0)
                 {
-                    IMEBRA_THROW(StreamEOFError, "Attempt to read past the end of the file");
+                    IMEBRA_THROW(StreamEOFError, "Attempt to read past the end of the file ,readBytes is Zero");
                 }
                 continue;
             }

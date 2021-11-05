@@ -40,7 +40,7 @@ If you do not want to be bound by the GPL terms (such as the requirement
 
 extern "C"
 {
-#include <openjpeg.h>
+#include  "openjpeg.h"
 }
 
 namespace imebra {

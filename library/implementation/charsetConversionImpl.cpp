@@ -113,7 +113,7 @@ std::string dicomConversion::convertFromUnicode(const std::wstring& unicodeStrin
                         break;
                     }
                 }
-                catch(const CharsetConversionNoSupportedTableError& )
+                catch(CharsetConversionNoSupportedTableError)
                 {
                     continue;
                 }

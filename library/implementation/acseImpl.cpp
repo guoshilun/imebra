@@ -1602,13 +1602,11 @@ void acsePDUAAbort::decodePDUPayload(std::shared_ptr<streamReader> reader)
 presentationContext::presentationContext(const std::string& abstractSyntax):
     m_abstractSyntax(abstractSyntax), m_bRequestorIsSCU(true), m_bRequestorIsSCP(false)
 {
-
 }
 
 presentationContext::presentationContext(const std::string& abstractSyntax, bool bRequestorIsSCU, bool bRequestorIsSCP):
     m_abstractSyntax(abstractSyntax), m_bRequestorIsSCU(bRequestorIsSCU), m_bRequestorIsSCP(bRequestorIsSCP)
 {
-
 }
 
 presentationContext::presentationContext(const presentationContext& right):
@@ -1617,7 +1615,6 @@ presentationContext::presentationContext(const presentationContext& right):
     m_bRequestorIsSCU(right.m_bRequestorIsSCU),
     m_bRequestorIsSCP(right.m_bRequestorIsSCP)
 {
-
 }
 
 void presentationContext::addTransferSyntax(const std::string& transferSyntax)
