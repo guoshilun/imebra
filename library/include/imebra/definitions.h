@@ -184,6 +184,71 @@ enum class tagVR_t: std::uint32_t
 
 };
 
+    static bool skip2Bytes(tagVR_t t){
+
+        ///Skip2VR = "OB,OD,OF,OL,OV,OW,SQ,SV,UC,UN,UR,UT,UV"
+
+        return     t == tagVR_t::OB
+                   || t == tagVR_t::OD
+                   || t == tagVR_t::OF
+                   || t == tagVR_t::OL
+                   || t == tagVR_t::OV
+                   || t == tagVR_t::OW
+                   || t == tagVR_t::SQ
+                   || t == tagVR_t::SV
+                   || t == tagVR_t::UC
+                   || t == tagVR_t::UN
+                   || t == tagVR_t::UR
+                   || t == tagVR_t::UT
+                   || t == tagVR_t::UV ;
+
+    }
+
+    static const char* vrToString(tagVR_t t){
+
+        switch (t) {
+            case  tagVR_t::AE:   return "AE";
+            case  tagVR_t::AS:   return "AS";
+            case  tagVR_t::AT:   return "AT";
+            case  tagVR_t::CS:   return "CS";
+            case  tagVR_t::DA:   return "DA";
+            case  tagVR_t::DS:   return "DS";
+            case  tagVR_t::DT:   return "DT";
+            case  tagVR_t::FL:   return "FL";
+            case  tagVR_t::FD:   return "FD";
+            case  tagVR_t::IS:   return "IS";
+            case  tagVR_t::LO:   return "LO";
+            case  tagVR_t::LT:   return "LT";
+            case  tagVR_t::OB:   return "OB";
+            case  tagVR_t::SB:   return "SB";
+            case  tagVR_t::OD:   return "OD";
+            case  tagVR_t::OF:   return "OF";
+            case  tagVR_t::OL:   return "OL";
+            case  tagVR_t::OV:   return "OV";
+            case  tagVR_t::OW:   return "OW";
+            case  tagVR_t::PN:   return "PN";
+            case  tagVR_t::SH:   return "SH";
+            case  tagVR_t::SL:   return "SL";
+            case  tagVR_t::SQ:   return "SQ";
+            case  tagVR_t::SS:   return "SS";
+            case  tagVR_t::ST:   return "ST";
+            case  tagVR_t::SV:   return "SV";
+            case  tagVR_t::TM:   return "TM";
+            case  tagVR_t::UC:   return "UC";
+            case  tagVR_t::UI:   return "UI";
+            case  tagVR_t::UL:   return "UL";
+            case  tagVR_t::UN:   return "UN";
+            case  tagVR_t::UR:   return "UR";
+            case  tagVR_t::US:   return "US";
+            case  tagVR_t::UT:   return "UT";
+            case  tagVR_t::UV:   return "UV";
+
+            default:
+                return "Unkonw VR";
+        }
+
+    }
+
 #ifndef SWIG
 static_assert((std::uint16_t)tagVR_t::AE == MAKE_VR_ENUM("AE"), "Wrong VR enumeration value");
 static_assert((std::uint16_t)tagVR_t::AS == MAKE_VR_ENUM("AS"), "Wrong VR enumeration value");

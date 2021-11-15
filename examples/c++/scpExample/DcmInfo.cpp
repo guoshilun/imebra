@@ -111,7 +111,7 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
             messageHeaders["Modality"] = mapModality[mgx];
         } else {
             messageHeaders["Modality"] = UNKOWN;
-            spdlog::warn("Modality:{} NOT MAPPED", mgx);
+           // spdlog::warn("Modality:{} NOT MAPPED", mgx);
         }
     }
     {
@@ -122,7 +122,7 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
             messageHeaders["BodyPartExamined"] = mapBodyPart[bp];
         } else {
             messageHeaders["BodyPartExamined"] = UNKOWN;
-            spdlog::warn("BodyPartExamed:{} NOT MAPPED", bp);
+           // spdlog::warn("BodyPartExamed:{} NOT MAPPED", bp);
         }
     }
     messageHeaders["Thickness"] = mThickness;

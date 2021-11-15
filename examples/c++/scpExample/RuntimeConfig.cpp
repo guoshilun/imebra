@@ -348,6 +348,7 @@ void RuntimeConfig::setupRabbitDispatcher() {
         for (auto t: threads) {
             uv_thread_join(&t);
         }
+
     }
 
     {

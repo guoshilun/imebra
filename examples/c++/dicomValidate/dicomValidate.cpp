@@ -38,7 +38,13 @@ int findArgument(const char* argument, int argc, char* argv[])
     }
     return -1;
 }
-
+void  printTagInfo(const std::wstring& prefix ,uint16_t groupId, uint16_t tagId, std::wstring& tagName  ){
+    char tagGrp[7]={0};
+    snprintf(tagGrp, 7 , "0x%04X", groupId);
+     char tagTag[7]={0};
+    snprintf(tagTag, 7 , "0x%04X", tagId);
+    std::wcout << prefix << L"Tag " << tagGrp << L"," <<  tagTag <<  L" (" << tagName << L")" << std::endl;
+}
 
 void outputDatasetTags(const DataSet& dataset, const std::wstring& prefix)
 {
@@ -52,7 +58,9 @@ void outputDatasetTags(const DataSet& dataset, const std::wstring& prefix)
         try
         {
             std::wstring tagName = DicomDictionary::getUnicodeTagDescription(*scanTags);
-            std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (" << tagName << L")" << std::endl;
+         //   std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (" << tagName << L")" << std::endl;
+
+            printTagInfo(prefix , (*scanTags).getGroupId()  ,  (*scanTags).getTagId()  , tagName);
         }
         catch(const DictionaryUnknownTagError&)
         {
