@@ -10,14 +10,17 @@
 cmake_minimum_required(VERSION 3.0)
 
 project("imebra")
-
+# Enable ExternalProject CMake module (so we can load GoogleTest)
+include(ExternalProject)
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
 if("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
     set(CMAKE_BUILD_TYPE "Debug") # Default build mode is debug
 endif()
 
 set(imebra_libraries "")
-
+#SET(CMAKE_C_FLAGS_DEBUG "-g -Wall")
+SET(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(JPEG2000 2)
 # Select the proper charset conversion libraries according to the charset conversion method
 #------------------------------------------------------------------------------------------
 if("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICONV*")
@@ -86,9 +89,18 @@ endif(APPLE)
 
 ##############################################
 #
-# LIBRARY
+# LIBRARY  下面3个库安装到系统库
 #
 ##############################################
+#   AMQP-CPP.git   v4.3.15
+#   libuv          v1.42.0
+#   spdlog         v1.9.2
+#   https://github.com/jbeder/yaml-cpp               yaml-cpp-0.7.0
+##############################################
+
+
+
+
 add_definitions(-DIMEBRA_DLL)
 add_definitions(-DIMEBRA_DLL_EXPORTS)
 add_definitions(-DNOMINMAX)
@@ -211,7 +223,19 @@ else()
 
 endif()
 
-target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
+#set(imebra_libraries ${imebra_libraries} ${OPENJPEG_LIBRARIES})
+#set(imebra_include ${imebra_include} ${OPENJPEG_INCLUDE_DIRS})
+
+if ("${JPEG2000}" STREQUAL "2")
+    find_package(OpenJPEG REQUIRED)
+#    include_directories(${OPENJPEG_INCLUDE_DIRS})
+    message(STATUS  "Include OpenJPEG2000 : ${OPENJPEG_INCLUDE_DIRS}")
+    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir}  ${OPENJPEG_INCLUDE_DIRS} )
+    target_link_libraries(imebra ${imebra_libraries}  ${OPENJPEG_LIBRARIES} )
+else ()
+    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
+    target_link_libraries(imebra ${imebra_libraries})
+endif ("${JPEG2000}" STREQUAL "2")
 
 # Define dependency libraries
 #----------------------------
@@ -260,7 +284,7 @@ else (${DCMTK_FOUND})
     message(WARNING "WARNING: DCMTK not found. Disabling interoperability tests")
 endif (${DCMTK_FOUND})
 
-if(NOT IOS)
+if (NOT IOS)
 
     ##############################################
     #
@@ -280,16 +304,16 @@ if(NOT IOS)
     # We need thread support
     find_package(Threads REQUIRED)
 
-    # Enable ExternalProject CMake module (so we can load GoogleTest)
-    include(ExternalProject)
+
 
     # Download and install GoogleTest
     ExternalProject_Add(
-        GTest
-        URL http://192.168.1.110/googletest-release-1.10.0.zip
-        CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
-        INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
+            GTest
+            GIT_REPOSITORY https://gitee.com/dhz1217/googletest
+            GIT_TAG release-1.10.0
+            CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
+            INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
     )
 
     set(imebra_tests_objc_src "")
@@ -316,18 +340,18 @@ if(NOT IOS)
             ${imebra_tests_objc_src}
     )
     add_dependencies(ImebraTests GTest)
-    target_include_directories(ImebraTests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include   ${DCMTK_INCLUDE_DIRS})
+    target_include_directories(ImebraTests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include ${DCMTK_INCLUDE_DIRS})
 
     # GTest always adds "d" to debug build, no matter what's the platform
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         target_link_libraries(ImebraTests imebra "gtestd")
-    else()
+    else ()
         target_link_libraries(ImebraTests imebra "gtest")
-    endif()
+    endif ()
 
-    if(${DCMTK_FOUND})
+    if (${DCMTK_FOUND})
         target_link_libraries(ImebraTests dcmdata dcmimage)
-    endif()
+    endif ()
 
     ##############################################
     #
@@ -384,21 +408,41 @@ endif()
 
     target_link_libraries(dicomDirItems imebra)
 
+    ##############################################
+    #
+    # dicomValidate  example
+    #
+    ##############################################
+    file(GLOB dicomValidate_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/dicomValidate/*.cpp")
+
+    # Add the source files to the project
+    #------------------------------------
+    add_executable(dicomValidate ${dicomValidate_sources} )
+
+    target_link_libraries(dicomValidate imebra  -lpthread -ldl )
+
+
 
     ##############################################
     #
     # scpExample example
     #
-    ##############################################
-    file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp")
+
+
+    file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp"
+                                 "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.h"
+    )
+
 
     # Add the source files to the project
     #------------------------------------
+
+    file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
+            DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources})
+    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
 
-    target_link_libraries(scpExample imebra)
-
-endif()
+endif ()
 
 
 ##############################################
@@ -425,10 +469,10 @@ set(CPACK_RPM_PACKAGE_REQUIRES "libc6")
 
 # Generate the control scripts
 #-----------------------------
-set(SHLIBS_FILE     "${CMAKE_CURRENT_BINARY_DIR}/shlibs")
+set(SHLIBS_FILE "${CMAKE_CURRENT_BINARY_DIR}/shlibs")
 set(POSTINST_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/postinst")
-set(PRERM_SCRIPT    "${CMAKE_CURRENT_BINARY_DIR}/prerm")
-set(POSTRM_SCRIPT   "${CMAKE_CURRENT_BINARY_DIR}/postrm")
+set(PRERM_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/prerm")
+set(POSTRM_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/postrm")
 
 # Generate postinst, prerm and postrm hooks
 file(WRITE "${POSTINST_SCRIPT}" "#!/bin/sh\n\nset -e\n")
@@ -458,7 +502,8 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/copyright"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/copyright"
         DESTINATION "share/doc/${CPACK_PACKAGE_NAME}/"
         PERMISSIONS
-        OWNER_WRITE OWNER_READ
+        OWNER_WRITE
+        OWNER_READ
         GROUP_READ
         WORLD_READ)
 

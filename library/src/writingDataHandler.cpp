@@ -231,5 +231,12 @@ void WritingDataHandler::setUnicodePatientName(size_t index, const UnicodePatien
 
     IMEBRA_FUNCTION_END_LOG();
 }
+    void WritingDataHandler::disableValidateSetOperation()
+    {
+        IMEBRA_FUNCTION_START();
 
+            m_pDataHandler->disableValidateSetOperation();
+
+        IMEBRA_FUNCTION_END_LOG();
+    }
 }

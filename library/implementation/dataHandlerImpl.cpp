@@ -174,8 +174,15 @@ void writingDataHandler::setUnicodePatientName(const size_t /* index */, const s
     IMEBRA_FUNCTION_END();
 }
 
-} // namespace handlers
+            void writingDataHandler::disableValidateSetOperation() {
+                IMEBRA_FUNCTION_START() ;
 
-} // namespace implementation
+                    m_disableValidateSetOp = true;
+
+                IMEBRA_FUNCTION_END();
+            }
+        } // namespace handlers
+
+    } // namespace implementation
 
 } // namespace imebra

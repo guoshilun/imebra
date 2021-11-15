@@ -327,7 +327,9 @@ private:
     friend const std::shared_ptr<implementation::handlers::writingDataHandler>& getWritingDataHandlerImplementation(const WritingDataHandler& writingHandler);
     std::shared_ptr<implementation::handlers::writingDataHandler> m_pDataHandler;
 #endif
-};
+
+        void disableValidateSetOperation();
+    };
 
 }
 

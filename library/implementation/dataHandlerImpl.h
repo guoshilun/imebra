@@ -494,12 +494,17 @@ public:
     ///////////////////////////////////////////////////////////
     virtual void setUnicodePatientName(const size_t index, const std::shared_ptr<const unicodePatientName>& pPatientName);
 
+    virtual void disableValidateSetOperation();
 protected:
+
+
     const tagVR_t m_dataType;
+
 
     // Pointer to the connected buffer
     ///////////////////////////////////////////////////////////
     std::shared_ptr<buffer> m_buffer;
+    bool  m_disableValidateSetOp ;
 };
 
 ///

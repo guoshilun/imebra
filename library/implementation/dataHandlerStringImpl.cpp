@@ -554,7 +554,10 @@ void writingDataHandlerString::setString(const size_t index, const std::string& 
     }
     m_strings[index] = value;
 
-    validate();
+
+        validate();
+
+
 
     IMEBRA_FUNCTION_END();
 }
@@ -574,6 +577,10 @@ void writingDataHandlerString::validate() const
 {
     IMEBRA_FUNCTION_START();
 
+    if (m_disableValidateSetOp){
+        //----禁止验证的时候
+        return;
+    }
     validateStringContainer(m_strings, m_maxSize, m_unitSize, m_separator != 0);
 
     IMEBRA_FUNCTION_END();

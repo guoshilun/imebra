@@ -149,6 +149,8 @@ protected:
     ///////////////////////////////////////////////////////////
     virtual void readStream(std::shared_ptr<streamReader> pStream, std::shared_ptr<dataSet> pDataSet, std::uint32_t maxSizeBufferLoad = 0xffffffff) const;
 
+
+
 protected:
     // Read a single tag
     ///////////////////////////////////////////////////////////
