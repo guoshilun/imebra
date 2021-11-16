@@ -215,7 +215,7 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
     if (access(saveTo.c_str(), F_OK) != 0) {
         spdlog::error("dir:{} denied access !", saveTo);
     } else {
-        ss << sopInstUid <<".dcm";
+        ss << dcmInfo.getSopInstUid() <<".dcm";
         imebra::CodecFactory::save(payload, ss.str(), imebra::codecType_t::dicom);
         messages.insert(dcmInfo);
     }

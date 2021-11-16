@@ -57,6 +57,7 @@ public:
     std::shared_ptr<AMQP::Envelope> createMessage(std::map<std::string,std::string>& modalityMap, std::map<std::string,std::string>& bodyPartMap);
 
     bool operator<(const DcmInfo &rhs) const;
+    std::string getSopUidCrcCode() const;
 
 protected:
 

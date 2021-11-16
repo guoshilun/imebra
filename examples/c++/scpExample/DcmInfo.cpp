@@ -136,6 +136,15 @@ std::string DcmInfo::getShortCrcCode() const {
     return std::to_string(_crcCode);
 }
 
+
+std::string DcmInfo::getSopUidCrcCode() const {
+    uLong crcCode = crc32(0x80000000, reinterpret_cast<const Bytef *>( mSopInstUid.c_str()),
+                          (uInt) mSopInstUid.size());
+    return std::to_string(_crcCode);
+}
+
+
+
 void DcmInfo::computeCrc() {
 
     uLong crcCode = crc32(0x80000000, reinterpret_cast<const Bytef *>( mStudyUid.c_str()),

@@ -245,12 +245,6 @@ const std::list<std::string> transferSyntaxes
 static void setupDicomContexts(imebra::PresentationContexts &presentationContexts) {
 
     for (const std::string &abstractSyntax: abstractSyntaxes) {
-
-
-        if (0 == strcasecmp(abstractSyntax.c_str(), "2.25.215425430857432966361489015284054781485")) {
-            std::wcout << L"Found :abstractSyntax:" << abstractSyntax.c_str() << std::endl;
-        }
-
         imebra::PresentationContext context(abstractSyntax);
         for (const std::string &transferSyntax: transferSyntaxes) {
             context.addTransferSyntax(transferSyntax);
@@ -346,7 +340,7 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
                         // Received other  command, 不处理
                         ////////////////////////////
                     {
-                        spdlog::error("Wrong command received ");
+                        spdlog::warn("Wrong command received ");
 
                     }
                         break;
@@ -383,8 +377,6 @@ void dimseCommands(imebra::TCPStream tcpStream, std::string aet, std::string dcm
     if(dicomMessages.empty()){
         return;
     }
-
-    spdlog::info("释放内存，发布消息");
     //----推送相关记录到消息队列
     ptr->publishCStoreMessage(dicomMessages);
 

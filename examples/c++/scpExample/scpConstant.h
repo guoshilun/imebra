@@ -24,7 +24,7 @@ public:
     ScpConstant operator=(const ScpConstant &) = delete;
 
 public:
-    static constexpr const char *MQ_ADDRESS = "amqp://root:root@localhost/imebra";
+    static constexpr const char *MQ_ADDRESS = "amqp://root:root@rabbitmq_host/imebra";
     static constexpr const char *FAILED = " Failed:";
     static constexpr const char *CreateQueue = "create RabbitMqQueueInfo :";
     static constexpr const char *ClearResource = "clear Resource ";
