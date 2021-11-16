@@ -201,10 +201,9 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
         return;
 
     }
-    // std::string saveTo(dcmStoreDir + patientId + "/" + studyUid + "/" + seriesUid + "/");
 
     std::stringstream ss;
-    ss << dcmStoreDir << patientId.c_str() << "/" << dcmInfo.getShortCrcCode()  << "/";
+    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() <<"/" << seriesUid.c_str()  << "/";
     std::string saveTo = ss.str();
     if (access(saveTo.c_str(), F_OK) != 0) {
         std::string cmdText("mkdir -p \"" + saveTo + "\"");
@@ -215,7 +214,7 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
     if (access(saveTo.c_str(), F_OK) != 0) {
         spdlog::error("dir:{} denied access !", saveTo);
     } else {
-        ss << dcmInfo.getSopInstUid() <<".dcm";
+        ss <<  sopInstUid.c_str() <<".dcm";
         imebra::CodecFactory::save(payload, ss.str(), imebra::codecType_t::dicom);
         messages.insert(dcmInfo);
     }
