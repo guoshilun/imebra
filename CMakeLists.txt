@@ -18,8 +18,8 @@ if("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
 endif()
 
 set(imebra_libraries "")
-#SET(CMAKE_C_FLAGS_DEBUG "-g -Wall")
-SET(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(CMAKE_C_FLAGS_DEBUG   "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(CMAKE_CXX_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
 SET(JPEG2000 2)
 # Select the proper charset conversion libraries according to the charset conversion method
 #------------------------------------------------------------------------------------------
@@ -104,6 +104,7 @@ endif(APPLE)
 add_definitions(-DIMEBRA_DLL)
 add_definitions(-DIMEBRA_DLL_EXPORTS)
 add_definitions(-DNOMINMAX)
+add_definitions(-DEMBED_BITCODE)
 
 file(GLOB imebra_interface "${CMAKE_CURRENT_SOURCE_DIR}/library/include/imebra/*.h")
 file(GLOB imebra_include "${CMAKE_CURRENT_SOURCE_DIR}/library/src/*.h")

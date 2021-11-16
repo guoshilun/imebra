@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 
 
         }
-        catch(DataSetImageDoesntExistError)
+        catch(const DataSetImageDoesntExistError&)
         {
             // Ignore this exception. It is thrown when we reach the
             //  end of the images list
