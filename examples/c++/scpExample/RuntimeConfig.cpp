@@ -14,7 +14,9 @@
 #include <yaml-cpp/yaml.h>
 #include <zlib.h>
 
-RuntimeConfig::RuntimeConfig() {
+RuntimeConfig::RuntimeConfig(std::string dicomStore)
+:dcmStoreDirectory(dicomStore)
+{
 
 }
 
@@ -23,7 +25,9 @@ RuntimeConfig::~RuntimeConfig() {
     examedBodyPartConverter.empty();
 }
 
-RuntimeConfig::RuntimeConfig(const RuntimeConfig &other) {
+RuntimeConfig::RuntimeConfig(const RuntimeConfig &other)
+:dcmStoreDirectory(other.dcmStoreDirectory){
+
     for (auto ax: other.modalityConverter) {
         modalityConverter.push_back(ax);
     }
@@ -248,7 +252,10 @@ bool RuntimeConfig::setupSpdlogRuntime() {
         size_t maxSize(ScpConstant::SPDLOG_MAX_SIZE_SINGLE_FILE);
         size_t files(ScpConstant::SPDLOG_MAX_ROATING_FILES);
 
-        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/info.txt",
+        char logPath[512]={0};
+        snprintf(logPath,512, "%slogs/info.txt", dcmStoreDirectory.c_str() );
+
+        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath ,
                                                                                     maxSize,
                                                                                     files);
         rotating_sink->set_level(spdlog::level::info);
@@ -287,10 +294,18 @@ bool RuntimeConfig::setupSpdlogRuntime() {
 void RuntimeConfig::setupRabbitDispatcher() {
     /// 查找符合要求的设备类型
 
-    std::string utf8 = u8"从当前目录./config.yaml 读取配置文件";
+    char cfgPath[512]={0};
+    snprintf(cfgPath,512, "%sconfig.yaml", dcmStoreDirectory.c_str() );
+
     spdlog::debug("setupRabbitRuntime  Begin");
-    spdlog::info(utf8.c_str());
-    YAML::Node config = YAML::LoadFile("./config.yaml");
+    spdlog::info( "load config.yaml from {}", cfgPath);
+    if (access(cfgPath, F_OK) != 0) {
+        spdlog::error("配置文件：{}不存在",cfgPath);
+        exit(1);
+        return;
+
+    }
+    YAML::Node config = YAML::LoadFile(cfgPath);
     messagePubExchange = config["MessagePub"]["exchange"].as<std::string>();
     messagePubRoutingKey = config["MessagePub"]["routingKey"].as<std::string>();
 

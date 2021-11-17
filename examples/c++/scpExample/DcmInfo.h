@@ -39,17 +39,9 @@ public:
 
     std::string getSopInstUid() const;
 
-    std::string getThickness() const;
 
-    std::string getModality() const;
 
-    std::string getExamPart() const;
 
-    std::string getUnkonwn() const {
-        return  UNKOWN;
-    }
-
-    std::string getShortCrcCode() const ;
     int  getInstanceNumber() const {
         return  mInstanceNumber;
     }
@@ -57,7 +49,7 @@ public:
     std::shared_ptr<AMQP::Envelope> createMessage(std::map<std::string,std::string>& modalityMap, std::map<std::string,std::string>& bodyPartMap);
 
     bool operator<(const DcmInfo &rhs) const;
-    std::string getSopUidCrcCode() const;
+
 
 protected:
 

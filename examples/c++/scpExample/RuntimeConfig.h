@@ -15,7 +15,7 @@
 class RuntimeConfig {
 
 public:
-    RuntimeConfig();
+    RuntimeConfig(std::string dcmStore);
 
     virtual  ~RuntimeConfig();
 
@@ -47,7 +47,7 @@ protected:
     static void fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP::Table &table);
 
 public:
-    static  bool setupSpdlogRuntime();
+     bool setupSpdlogRuntime();
 
 protected:
     std::vector<DicomTagConverter> modalityConverter;
@@ -56,6 +56,8 @@ protected:
     std::string messagePubRoutingKey;
     std::map<std::string,std::string> mapModality;
     std::map<std::string,std::string> mapBodyPart;
+
+    std::string dcmStoreDirectory;
 
 
 

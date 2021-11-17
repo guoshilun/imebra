@@ -50,18 +50,6 @@ std::string DcmInfo::getPatientId() const {
     return mPatientId;
 }
 
-std::string DcmInfo::getExamPart() const {
-    return mExamPart;
-}
-
-std::string DcmInfo::getModality() const {
-    return mModality;
-}
-
-std::string DcmInfo::getThickness() const {
-    return mThickness;
-}
-
 std::string DcmInfo::getSeriesUid() const {
     return mSeriesUid;
 }
@@ -101,7 +89,8 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     messageHeaders["x-Modality"] = mModality;
     messageHeaders["x-BodyPartExamined"] = mExamPart;
     messageHeaders["x-PatientId"] = mPatientId;
-    messageHeaders["x-DirName"] = this->getShortCrcCode();
+    messageHeaders["x-StudyUid"] = mStudyUid;
+    messageHeaders["x-SeriesUid"] = mSeriesUid;
     messageHeaders["x-InstNum"] = mInstanceNumber;
     // std::string tx = std::toupper(mModality, std::locale("zh_CN.utf8"));
     {
@@ -131,17 +120,6 @@ std::shared_ptr<AMQP::Envelope> DcmInfo::createMessage(std::map<std::string, std
     return ptr;
 }
 
-std::string DcmInfo::getShortCrcCode() const {
-
-    return std::to_string(_crcCode);
-}
-
-
-std::string DcmInfo::getSopUidCrcCode() const {
-    uLong crcCode = crc32(0x80000000, reinterpret_cast<const Bytef *>( mSopInstUid.c_str()),
-                          (uInt) mSopInstUid.size());
-    return std::to_string(_crcCode);
-}
 
 
 

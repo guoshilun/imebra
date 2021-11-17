@@ -77,11 +77,11 @@ int main(int argc, char *argv[]) {
         }
 
 
-        RuntimeConfig  runtimeConfig;
+        RuntimeConfig  runtimeConfig(savedDirectory);
         std::shared_ptr<RuntimeConfig>  configPtr = std::make_shared<RuntimeConfig>( runtimeConfig);
 
 
-        bool createLog = RuntimeConfig::setupSpdlogRuntime();
+        bool createLog = configPtr.get()->setupSpdlogRuntime();
         if (!createLog) {
             return 0;
         }
