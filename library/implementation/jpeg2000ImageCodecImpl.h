@@ -25,7 +25,7 @@ If you do not want to be bound by the GPL terms (such as the requirement
 #include "jpegCodecBaseImpl.h"
 #include <map>
 #include <list>
-
+#include <gdcmJPEG2000Codec.h>
 
 namespace imebra
 {
@@ -36,10 +36,7 @@ namespace implementation
 namespace codecs
 {
 
-/// \addtogroup group_codecs
-///
-/// @{
-    class JPEG2000Internals;
+
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
 /// \brief The Jpeg 2000 codec.
@@ -53,26 +50,6 @@ class jpeg2000ImageCodec : public imageCodec
 {
 public:
 
-    jpeg2000ImageCodec();
-    ~jpeg2000ImageCodec() override;
-
-    void SetRate(unsigned int idx, double rate);
-
-     double GetRate(unsigned int idx = 0) const;
-
-    void SetQuality(unsigned int idx, double q);
-
-    double GetQuality(unsigned int idx = 0) const;
-
-    void SetTileSize(unsigned int tx, unsigned int ty);
-
-    void SetNumberOfResolutions(unsigned int nres);
-
-    /// Set Number of threads
-    /// @param nThreads : number of threads for decompression codec, if 0 or 1 decompression is done in current thread, if negative value is set determine how many virtual threads are available
-    void SetNumberOfThreadsForDecompression(int nThreads);
-
-    void SetReversible(bool res);
 
 
     // Retrieve the image from a dataset
@@ -120,25 +97,6 @@ public:
 	// Return the suggested allocated bits
 	///////////////////////////////////////////////////////////
     virtual std::uint32_t suggestAllocatedBits(const std::string& transferSyntax, std::uint32_t highBit) const override;
-
-
-
-private:
-    bool
-    codeFrameIntoBuffer(char * outdata, size_t outlen, size_t & complen, const char * inputdata, size_t inputlength ,
-                        uint32_t image_width,uint32_t image_height,
-                        int sample_pixel ,
-                        int bitsallocated ,
-                        int bitsstored ,
-                        int highbit ,
-                        int sign,
-                        int planarConfiguration
-    ) const;
-
-
-    JPEG2000Internals *Internals;
-    bool LossyFlag;
-
 
 };
 

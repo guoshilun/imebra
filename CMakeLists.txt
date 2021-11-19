@@ -6,8 +6,8 @@
 # -DIMEBRA_CHARSET_CONVERSION=ICONV|ICU|JAVA|WINDOWS (default = ICONV on posix, WINDOWS on Windows)
 # -DIMEBRA_OBJC=1|0 (default = 0 on Windows and Linux, 1 on macOS and iOS)
 # -DEMBED_BITCODE=1|0 (default = 0)
-
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.20)
+cmake_policy(VERSION 3.9.2)
 
 project("imebra")
 # Enable ExternalProject CMake module (so we can load GoogleTest)
@@ -20,7 +20,58 @@ endif()
 set(imebra_libraries "")
 SET(CMAKE_C_FLAGS_DEBUG   "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
 SET(CMAKE_CXX_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+
+
+#############################Import GDCM
+
+ExternalProject_Add(
+        GDCM
+        GIT_REPOSITORY https://gitee.com/dhz1217/GDCM.git
+        GIT_TAG hzjp-V1.1.2
+        CMAKE_ARGS  "-DGDCM_BUILD_DOCBOOK_MANPAGES=OFF" "-DGDCM_STANDALONE=OFF"  "-DGDCM_BUILD_TESTING_DEFAULT=OFF" "-DGDCM_BUILD_SHARED_LIBS=ON"
+                    "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/GDCM_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+                    "-DDCMTK_DIR=/opt/dcmtk-3.6.6/lib/cmake/dcmtk"
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/GDCM
+        INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install
+)
+
+
+SET(GDCM_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install/lib/gdcm-3.1)
+message(STATUS "GDCM found. JPEG2000 编解码用GDCM  and ${GDCM_DIR}")
+FIND_PACKAGE(GDCM  REQUIRED)
+if(${GDCM_FOUND})
+    message(STATUS "GDCM found. JPEG2000 编解码用GDCM")
+    INCLUDE(${GDCM_USE_FILE})
+    SET(GDCM_LIBRARIES
+            gdcmcharls
+            gdcmCommon
+            gdcmDICT
+            gdcmDSED
+            gdcmexpat
+            #            gdcmgetopt
+            gdcmIOD
+            gdcmjpeg12
+            gdcmjpeg16
+            gdcmjpeg8
+            gdcmMEXD
+            gdcmMSFF
+            gdcmopenjp2
+            #            gdcmopenjpeg
+            gdcmzlib
+            #            socketxx
+            #            vtkgdcm
+            #            Rpcrt4
+            )
+    SET(JPEG2000 2)
+else(${GDCM_FOUND})
+    message(WARNING "WARNING: GDCM not found. Disabling interoperability tests")
+endif(${GDCM_FOUND})
+
+
 SET(JPEG2000 2)
+
+############################
+
 # Select the proper charset conversion libraries according to the charset conversion method
 #------------------------------------------------------------------------------------------
 if("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICONV*")
@@ -161,14 +212,12 @@ endif(NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
 
 # Add jpeg2000 if specified
 if("${JPEG2000}" STREQUAL "1")
-    set(imebra_libraries ${imebra_libraries} openjpeg)
     add_definitions(-DJPEG2000)
     add_definitions(-DJPEG2000_V1)
     message(STATUS "Adding experimental Jpeg2000 codec (based on OpenJpeg v1.X)")
 endif("${JPEG2000}" STREQUAL "1")
 
 if("${JPEG2000}" STREQUAL "2")
-    set(imebra_libraries ${imebra_libraries} openjp2)
     add_definitions(-DJPEG2000)
     add_definitions(-DJPEG2000_V2)
     message(STATUS "Adding experimental Jpeg2000 codec (based on OpenJpeg v2.X)")
@@ -227,16 +276,16 @@ endif()
 #set(imebra_libraries ${imebra_libraries} ${OPENJPEG_LIBRARIES})
 #set(imebra_include ${imebra_include} ${OPENJPEG_INCLUDE_DIRS})
 
-if ("${JPEG2000}" STREQUAL "2")
-    find_package(OpenJPEG REQUIRED)
-#    include_directories(${OPENJPEG_INCLUDE_DIRS})
-    message(STATUS  "Include OpenJPEG2000 : ${OPENJPEG_INCLUDE_DIRS}")
-    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir}  ${OPENJPEG_INCLUDE_DIRS} )
-    target_link_libraries(imebra ${imebra_libraries}  ${OPENJPEG_LIBRARIES} )
-else ()
-    target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
-    target_link_libraries(imebra ${imebra_libraries})
-endif ("${JPEG2000}" STREQUAL "2")
+# https://gitee.com/dhz1217/GDCM.git
+
+# 引入GDCM ，用于JPEG2000的写入
+
+
+
+
+target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
+target_link_libraries(imebra ${imebra_libraries}  ${GDCM_LIBRARIES})
+
 
 # Define dependency libraries
 #----------------------------
@@ -287,6 +336,7 @@ endif (${DCMTK_FOUND})
 
 if (NOT IOS)
 
+
     ##############################################
     #
     # TESTS
@@ -311,14 +361,16 @@ if (NOT IOS)
     ExternalProject_Add(
             GTest
             GIT_REPOSITORY https://gitee.com/dhz1217/googletest
-            GIT_TAG release-1.10.0
+            GIT_TAG release-1.11.0
             CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
             INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
     )
 
     set(imebra_tests_objc_src "")
-    file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h")
+    file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h"
+
+            )
     file(GLOB imebra_tests_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
     if("${IMEBRA_OBJC}" STREQUAL "1")
 
@@ -339,15 +391,19 @@ if (NOT IOS)
             ${imebra_tests_include}
             ${imebra_tests_src}
             ${imebra_tests_objc_src}
+
     )
     add_dependencies(ImebraTests GTest)
-    target_include_directories(ImebraTests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include ${DCMTK_INCLUDE_DIRS})
+    target_include_directories(ImebraTests PRIVATE
+            ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include
+
+            ${DCMTK_INCLUDE_DIRS})
 
     # GTest always adds "d" to debug build, no matter what's the platform
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-        target_link_libraries(ImebraTests imebra "gtestd")
+        target_link_libraries(ImebraTests imebra  ${GDCM_LIBRARIES}  "gtestd")
     else ()
-        target_link_libraries(ImebraTests imebra "gtest")
+        target_link_libraries(ImebraTests imebra  ${GDCM_LIBRARIES}  "gtest")
     endif ()
 
     if (${DCMTK_FOUND})
@@ -377,9 +433,10 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(dicom2jpeg ${dicom2jpeg_sources})
+    add_executable(dicom2jpeg ${dicom2jpeg_sources}   )
 
-    target_link_libraries(dicom2jpeg imebra)
+
+    target_link_libraries(dicom2jpeg imebra  ${GDCM_LIBRARIES} )
 
 
     ##############################################
@@ -391,9 +448,9 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(changeTransferSyntax ${changeTransferSyntax_sources})
+    add_executable(changeTransferSyntax ${changeTransferSyntax_sources}   )
 
-    target_link_libraries(changeTransferSyntax imebra)
+    target_link_libraries(changeTransferSyntax imebra  ${GDCM_LIBRARIES} )
 
 
     ##############################################
@@ -407,7 +464,7 @@ endif()
     #------------------------------------
     add_executable(dicomDirItems ${dicomdirItems_sources})
 
-    target_link_libraries(dicomDirItems imebra)
+    target_link_libraries(dicomDirItems  imebra  ${GDCM_LIBRARIES}  )
 
     ##############################################
     #
@@ -420,7 +477,7 @@ endif()
     #------------------------------------
     add_executable(dicomValidate ${dicomValidate_sources} )
 
-    target_link_libraries(dicomValidate imebra  -lpthread -ldl )
+    target_link_libraries(dicomValidate imebra   ${GDCM_LIBRARIES}   -lpthread -ldl )
 
 
 
@@ -432,16 +489,18 @@ endif()
 
     file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp"
                                  "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.h"
+
     )
+
 
 
     # Add the source files to the project
     #------------------------------------
 
     file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
-            DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
+                DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources})
-    target_link_libraries(scpExample imebra -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
+    target_link_libraries(scpExample imebra    ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
 
 endif ()
 
