@@ -7,7 +7,7 @@
 # -DIMEBRA_OBJC=1|0 (default = 0 on Windows and Linux, 1 on macOS and iOS)
 # -DEMBED_BITCODE=1|0 (default = 0)
 cmake_minimum_required(VERSION 3.20)
-cmake_policy(VERSION 3.9.2)
+
 
 project("imebra")
 # Enable ExternalProject CMake module (so we can load GoogleTest)
@@ -28,8 +28,12 @@ ExternalProject_Add(
         GDCM
         GIT_REPOSITORY https://gitee.com/dhz1217/GDCM.git
         GIT_TAG hzjp-V1.1.2
-        CMAKE_ARGS  "-DGDCM_BUILD_DOCBOOK_MANPAGES=OFF" "-DGDCM_STANDALONE=OFF"  "-DGDCM_BUILD_TESTING_DEFAULT=OFF" "-DGDCM_BUILD_SHARED_LIBS=ON"
-                    "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/GDCM_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+        CMAKE_ARGS  "-DGDCM_BUILD_DOCBOOK_MANPAGES=OFF"
+                    "-DGDCM_STANDALONE=OFF"
+                    "-DGDCM_BUILD_TESTING_DEFAULT=OFF"
+                    "-DGDCM_BUILD_SHARED_LIBS=ON"
+                    "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/GDCM_install"
+                    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/GDCM
         INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install
 )
@@ -47,27 +51,22 @@ if(${GDCM_FOUND})
             gdcmDICT
             gdcmDSED
             gdcmexpat
-            #            gdcmgetopt
             gdcmIOD
+            gdcmjpeg8
             gdcmjpeg12
             gdcmjpeg16
-            gdcmjpeg8
+            gdcmmd5
             gdcmMEXD
             gdcmMSFF
             gdcmopenjp2
-            #            gdcmopenjpeg
+            gdcmuuid
             gdcmzlib
-            #            socketxx
-            #            vtkgdcm
-            #            Rpcrt4
+            socketxx
             )
     SET(JPEG2000 2)
 else(${GDCM_FOUND})
     message(WARNING "WARNING: GDCM not found. Disabling interoperability tests")
 endif(${GDCM_FOUND})
-
-
-SET(JPEG2000 2)
 
 ############################
 
@@ -210,12 +209,6 @@ if(NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
 endif(NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
 
 # Add jpeg2000 if specified
-if("${JPEG2000}" STREQUAL "1")
-    add_definitions(-DJPEG2000)
-    add_definitions(-DJPEG2000_V1)
-    message(STATUS "Adding experimental Jpeg2000 codec (based on OpenJpeg v1.X)")
-endif("${JPEG2000}" STREQUAL "1")
-
 if("${JPEG2000}" STREQUAL "2")
     add_definitions(-DJPEG2000)
     add_definitions(-DJPEG2000_V2)
@@ -272,16 +265,6 @@ else()
 
 endif()
 
-#set(imebra_libraries ${imebra_libraries} ${OPENJPEG_LIBRARIES})
-#set(imebra_include ${imebra_include} ${OPENJPEG_INCLUDE_DIRS})
-
-# https://gitee.com/dhz1217/GDCM.git
-
-# 引入GDCM ，用于JPEG2000的写入
-
-
-
-
 target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
 target_link_libraries(imebra ${imebra_libraries}  ${GDCM_LIBRARIES})
 
@@ -325,13 +308,6 @@ set_target_properties(imebra PROPERTIES VERSION ${IMEBRA_VERSION}
                                           SOVERSION ${IMEBRA_MAJOR_VERSION})
 
 
-find_package(DCMTK)
-if (${DCMTK_FOUND})
-    message(STATUS "DCMTK found. Interoperability tests enabled")
-else (${DCMTK_FOUND})
-    add_definitions(-DDISABLE_DCMTK_INTEROPERABILITY_TEST)
-    message(WARNING "WARNING: DCMTK not found. Disabling interoperability tests")
-endif (${DCMTK_FOUND})
 
 if (NOT IOS)
 
@@ -344,12 +320,13 @@ if (NOT IOS)
 
     # Find DCMTK for interoperability tests.
     find_package(DCMTK)
-    if(${DCMTK_FOUND})
-            message(STATUS "DCMTK found. Interoperability tests enabled")
-    else(${DCMTK_FOUND})
-            add_definitions(-DDISABLE_DCMTK_INTEROPERABILITY_TEST)
-            message(WARNING "WARNING: DCMTK not found. Disabling interoperability tests")
-    endif(${DCMTK_FOUND})
+    if (${DCMTK_FOUND})
+        message(STATUS "DCMTK found. Interoperability tests enabled")
+    else (${DCMTK_FOUND})
+        add_definitions(-DDISABLE_DCMTK_INTEROPERABILITY_TEST)
+        message(WARNING "WARNING: DCMTK not found. Disabling interoperability tests")
+    endif (${DCMTK_FOUND})
+
 
     # We need thread support
     find_package(Threads REQUIRED)
@@ -367,9 +344,7 @@ if (NOT IOS)
     )
 
     set(imebra_tests_objc_src "")
-    file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h"
-
-            )
+    file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h" )
     file(GLOB imebra_tests_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
     if("${IMEBRA_OBJC}" STREQUAL "1")
 
@@ -395,7 +370,6 @@ if (NOT IOS)
     add_dependencies(ImebraTests GTest)
     target_include_directories(ImebraTests PRIVATE
             ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include
-
             ${DCMTK_INCLUDE_DIRS})
 
     # GTest always adds "d" to debug build, no matter what's the platform

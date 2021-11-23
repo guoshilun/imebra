@@ -13,10 +13,12 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <zlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 
 RuntimeConfig::RuntimeConfig(std::string dicomStore)
-:dcmStoreDirectory(dicomStore)
-{
+        : dcmStoreDirectory(dicomStore) {
 
 }
 
@@ -26,7 +28,7 @@ RuntimeConfig::~RuntimeConfig() {
 }
 
 RuntimeConfig::RuntimeConfig(const RuntimeConfig &other)
-:dcmStoreDirectory(other.dcmStoreDirectory){
+        : dcmStoreDirectory(other.dcmStoreDirectory) {
 
     for (auto ax: other.modalityConverter) {
         modalityConverter.push_back(ax);
@@ -202,26 +204,29 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
                 "patientId， studyUid， sereisUid or sopInstUid   not exists or one of those are empty:[{},{},{},{}]",
                 patientId, studyUid, seriesUid, sopInstUid);
         return;
-
     }
-
     std::stringstream ss;
-    ss << dcmStoreDir << patientId.c_str() << "/" << studyUid.c_str() <<"/" << seriesUid.c_str()  << "/";
-    std::string saveTo = ss.str();
-    if (access(saveTo.c_str(), F_OK) != 0) {
-        std::string cmdText("mkdir -p \"" + saveTo + "\"");
-        int retur = system(cmdText.c_str());
-        spdlog::debug("{}=mkdir:{}", retur, saveTo.substr(dcmStoreDir.size()));
+    ss << dcmStoreDir;
+    std::vector<std::string> paths;
+    paths.push_back(patientId);
+    paths.push_back(studyUid);
+    paths.push_back(seriesUid);
+    for (std::vector<std::string>::iterator start = paths.begin(); start != paths.end(); start++) {
+        ss << start->c_str();
+        if (0 == access(ss.str().c_str(), F_OK | R_OK | W_OK)) {
+            int rc = mkdir(ss.str().c_str(), 0777);
+            if (rc != 0) {
+                spdlog::error("createDirFailed:{}", ss.str().c_str());
+                return;
+            }
+        }
+        ss << "/";
     }
-
-    if (access(saveTo.c_str(), F_OK) != 0) {
-        spdlog::error("dir:{} denied access !", saveTo);
-    } else {
-        ss <<  sopInstUid.c_str() <<".dcm";
-        imebra::CodecFactory::save(payload, ss.str(), imebra::codecType_t::dicom);
-        messages.insert(dcmInfo);
-    }
+    ss << sopInstUid.c_str() << ".dcm";
+    std::string dcmSavePath = ss.str();
     ss.clear();
+    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
+    messages.insert(dcmInfo);
 }
 
 bool RuntimeConfig::setupSpdlogRuntime() {
@@ -252,10 +257,10 @@ bool RuntimeConfig::setupSpdlogRuntime() {
         size_t maxSize(ScpConstant::SPDLOG_MAX_SIZE_SINGLE_FILE);
         size_t files(ScpConstant::SPDLOG_MAX_ROATING_FILES);
 
-        char logPath[512]={0};
-        snprintf(logPath,512, "%slogs/info.txt", dcmStoreDirectory.c_str() );
+        char logPath[512] = {0};
+        snprintf(logPath, 512, "%slogs/info.txt", dcmStoreDirectory.c_str());
 
-        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath ,
+        auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath,
                                                                                     maxSize,
                                                                                     files);
         rotating_sink->set_level(spdlog::level::info);
@@ -294,13 +299,13 @@ bool RuntimeConfig::setupSpdlogRuntime() {
 void RuntimeConfig::setupRabbitDispatcher() {
     /// 查找符合要求的设备类型
 
-    char cfgPath[512]={0};
-    snprintf(cfgPath,512, "%sconfig.yaml", dcmStoreDirectory.c_str() );
+    char cfgPath[512] = {0};
+    snprintf(cfgPath, 512, "%sconfig.yaml", dcmStoreDirectory.c_str());
 
     spdlog::debug("setupRabbitRuntime  Begin");
-    spdlog::info( "load config.yaml from {}", cfgPath);
+    spdlog::info("load config.yaml from {}", cfgPath);
     if (access(cfgPath, F_OK) != 0) {
-        spdlog::error("配置文件：{}不存在",cfgPath);
+        spdlog::error("配置文件：{}不存在", cfgPath);
         exit(1);
         return;
 
