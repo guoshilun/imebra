@@ -21,7 +21,6 @@ set(imebra_libraries "")
 SET(CMAKE_C_FLAGS_DEBUG   "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
 SET(CMAKE_CXX_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
 
-
 #############################Import GDCM
 
 ExternalProject_Add(
@@ -469,11 +468,40 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-
-    file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
-                DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
+#    SET(GDCM_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install/lib/gdcm-3.1)
+#    message(STATUS "GDCM found. JPEG2000 编解码用GDCM  and ${GDCM_DIR}")
+#    FIND_PACKAGE(GDCM  REQUIRED)
+#    if(${GDCM_FOUND})
+#        message(STATUS "GDCM found. JPEG2000 编解码用GDCM")
+#        INCLUDE(${GDCM_USE_FILE})
+#        SET(GDCM_LIBRARIES
+#                gdcmcharls
+#                gdcmCommon
+#                gdcmDICT
+#                gdcmDSED
+#                gdcmexpat
+#                gdcmIOD
+#                gdcmjpeg8
+#                gdcmjpeg12
+#                gdcmjpeg16
+#                gdcmmd5
+#                gdcmMEXD
+#                gdcmMSFF
+#                gdcmopenjp2
+#                gdcmuuid
+#                gdcmzlib
+#                socketxx
+#                )
+#        SET(JPEG2000 2)
+#    else(${GDCM_FOUND})
+#        message(WARNING "WARNING: GDCM not found. Disabling interoperability tests")
+#    endif(${GDCM_FOUND})
+#
+#    file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
+#                DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources})
-    target_link_libraries(scpExample imebra    ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
+    message(STATUS  "scpExample Dir:${GDCM_LIBRARIES}")
+    target_link_libraries(scpExample imebra   ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
 
 endif ()
 

@@ -15,7 +15,7 @@
 class RuntimeConfig {
 
 public:
-    RuntimeConfig(std::string dcmStore);
+    RuntimeConfig(std::string dcmStore , std::string logDirectory , std::string configFilePath);
 
     virtual  ~RuntimeConfig();
 
@@ -58,6 +58,8 @@ protected:
     std::map<std::string,std::string> mapBodyPart;
 
     std::string dcmStoreDirectory;
+    std::string dcmLogDirectory;
+    std::string dcmCfgFilePath;
 
 
 

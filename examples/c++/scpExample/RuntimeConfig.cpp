@@ -12,13 +12,12 @@
 #include <spdlog/async.h>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
-#include <zlib.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 
-RuntimeConfig::RuntimeConfig(std::string dicomStore)
-        : dcmStoreDirectory(dicomStore) {
+
+RuntimeConfig::RuntimeConfig(std::string dicomStore, std::string logDirectory, std::string configFilePath)
+        : dcmStoreDirectory(dicomStore), dcmLogDirectory(logDirectory), dcmCfgFilePath(configFilePath) {
 
 }
 
@@ -28,7 +27,8 @@ RuntimeConfig::~RuntimeConfig() {
 }
 
 RuntimeConfig::RuntimeConfig(const RuntimeConfig &other)
-        : dcmStoreDirectory(other.dcmStoreDirectory) {
+        : dcmStoreDirectory(other.dcmStoreDirectory), dcmLogDirectory(other.dcmLogDirectory),
+          dcmCfgFilePath(other.dcmCfgFilePath) {
 
     for (auto ax: other.modalityConverter) {
         modalityConverter.push_back(ax);
@@ -213,12 +213,17 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
     paths.push_back(seriesUid);
     for (std::vector<std::string>::iterator start = paths.begin(); start != paths.end(); start++) {
         ss << start->c_str();
-        if (0 == access(ss.str().c_str(), F_OK | R_OK | W_OK)) {
-            int rc = mkdir(ss.str().c_str(), 0777);
+        std::string dir = ss.str();
+        if (0 != access(dir.c_str(), F_OK | R_OK | W_OK)) {
+            int rc = mkdir(dir.c_str(), 0777);
             if (rc != 0) {
-                spdlog::error("createDirFailed:{}", ss.str().c_str());
+                spdlog::error("create Directory Failed:{}", ss.str());
                 return;
+            } else {
+                spdlog::debug("create Directory Success:{}", ss.str());
             }
+        }else {
+            spdlog::debug("directoryExists:{}", ss.str());
         }
         ss << "/";
     }
@@ -227,6 +232,7 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
     ss.clear();
     imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
     messages.insert(dcmInfo);
+
 }
 
 bool RuntimeConfig::setupSpdlogRuntime() {
@@ -258,7 +264,7 @@ bool RuntimeConfig::setupSpdlogRuntime() {
         size_t files(ScpConstant::SPDLOG_MAX_ROATING_FILES);
 
         char logPath[512] = {0};
-        snprintf(logPath, 512, "%slogs/info.txt", dcmStoreDirectory.c_str());
+        snprintf(logPath, 512, "%s/info.txt", dcmLogDirectory.c_str());
 
         auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPath,
                                                                                     maxSize,
@@ -300,15 +306,13 @@ void RuntimeConfig::setupRabbitDispatcher() {
     /// 查找符合要求的设备类型
 
     char cfgPath[512] = {0};
-    snprintf(cfgPath, 512, "%sconfig.yaml", dcmStoreDirectory.c_str());
+    snprintf(cfgPath, 512, "%s", dcmCfgFilePath.c_str());
 
     spdlog::debug("setupRabbitRuntime  Begin");
     spdlog::info("load config.yaml from {}", cfgPath);
     if (access(cfgPath, F_OK) != 0) {
         spdlog::error("配置文件：{}不存在", cfgPath);
         exit(1);
-        return;
-
     }
     YAML::Node config = YAML::LoadFile(cfgPath);
     messagePubExchange = config["MessagePub"]["exchange"].as<std::string>();

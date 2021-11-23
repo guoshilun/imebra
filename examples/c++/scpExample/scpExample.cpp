@@ -52,32 +52,37 @@ int main(int argc, char *argv[]) {
 
     try {
         // Check the number of received arguments
-        if (argc < 4) {
-            std::wcout << L"Usage: scpExample port AET  dcmSaveDirectory" << std::endl;
+        if (argc < 6) {
+            std::wcout << L"Usage: scpExample port AET  dcmSaveDirectory  dcmLogDir  dcmConfigYamlFilePath" << std::endl;
             return 1;
         }
 
         std::string savedDirectory(argv[3]);
+        std::string logDirectory(argv[4]);
+        std::string configPath (argv[5]);
+
         unsigned long length = savedDirectory.length();
         if (savedDirectory[length - 1] != '/') {
             savedDirectory.append("/");
         }
-
-        if (access(savedDirectory.c_str(), F_OK) != 0) {
-            //--- 目录不存在
-            std::string createDirectory("mkdir -p ");
-            createDirectory.append(savedDirectory);
-            std::system(createDirectory.c_str());
-        }
-
 
         if (access(savedDirectory.c_str(), F_OK | R_OK | W_OK) != 0) {
             std::wcout << "DICOM Saved Directory： " << argv[3] << " Not Exists  or  Deny Access !" << std::endl;
             return 0;
         }
 
+        if (access(logDirectory.c_str(), F_OK | R_OK | W_OK) != 0) {
+            std::wcout << "DICOM Log  Directory： " << argv[4] << " Not Exists  or  Deny Access !" << std::endl;
+            return 0;
+        }
 
-        RuntimeConfig  runtimeConfig(savedDirectory);
+        if (access(configPath.c_str(), F_OK | R_OK ) != 0) {
+            std::wcout << "DICOM Config.yaml Directory： " << argv[5] << " Not Exists  or  Deny Access !" << std::endl;
+            return 0;
+        }
+
+
+        RuntimeConfig  runtimeConfig(savedDirectory , logDirectory , configPath);
         std::shared_ptr<RuntimeConfig>  configPtr = std::make_shared<RuntimeConfig>( runtimeConfig);
 
 
