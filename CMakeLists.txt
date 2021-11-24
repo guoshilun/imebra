@@ -6,7 +6,7 @@
 # -DIMEBRA_CHARSET_CONVERSION=ICONV|ICU|JAVA|WINDOWS (default = ICONV on posix, WINDOWS on Windows)
 # -DIMEBRA_OBJC=1|0 (default = 0 on Windows and Linux, 1 on macOS and iOS)
 # -DEMBED_BITCODE=1|0 (default = 0)
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.10)
 
 
 project("imebra")
