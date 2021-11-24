@@ -223,7 +223,7 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
                 spdlog::debug("create Directory Success:{}", ss.str());
             }
         }else {
-            spdlog::debug("directoryExists:{}", ss.str());
+            spdlog::debug("directoryExists  And allow RW:{}", ss.str());
         }
         ss << "/";
     }

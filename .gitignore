@@ -8,3 +8,5 @@ imebra_*.zip
 
 *.zip
 .idea/
+cmake-build-debug/
+cmake-build-release/

@@ -145,8 +145,9 @@ int main(int argc, char *argv[]) {
 
 
         //  loopThrea.join();
-        spdlog::info("DicomCStoreSCP Service  is listening on {}@{}, Storage Directory is:{}", port, aet,
-                     savedDirectory);
+        spdlog::info("DicomCStoreSCP Service  is listening on {}@{}, File Save To:{},Log Save To:{},Config  From:{}",
+                     port, aet,
+                     savedDirectory,logDirectory, configPath);
 
         cv.wait(lk, [] { return false; });
 
