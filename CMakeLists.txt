@@ -13,35 +13,38 @@ project("imebra")
 # Enable ExternalProject CMake module (so we can load GoogleTest)
 include(ExternalProject)
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
-if("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
+if ("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
     set(CMAKE_BUILD_TYPE "Debug") # Default build mode is debug
-endif()
+
+endif ()
 
 set(imebra_libraries "")
-SET(CMAKE_C_FLAGS_DEBUG   "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(CMAKE_C_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
 SET(CMAKE_CXX_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(IMEBRA_CHARSET_CONVERSION ICONV)
+SET(IMEBRA_LOG_LEVEL OFF)
 
-#############################Import GDCM
+#############################Import GDCM##############################
 
-ExternalProject_Add(
-        GDCM
-        GIT_REPOSITORY https://gitee.com/dhz1217/GDCM.git
-        GIT_TAG hzjp-V1.1.2
-        CMAKE_ARGS  "-DGDCM_BUILD_DOCBOOK_MANPAGES=OFF"
-                    "-DGDCM_STANDALONE=OFF"
-                    "-DGDCM_BUILD_TESTING_DEFAULT=OFF"
-                    "-DGDCM_BUILD_SHARED_LIBS=ON"
-                    "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/GDCM_install"
-                    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/GDCM
-        INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install
-)
-
-
-SET(GDCM_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install/lib/gdcm-3.1)
-message(STATUS "GDCM found. JPEG2000 编解码用GDCM  and ${GDCM_DIR}")
-FIND_PACKAGE(GDCM  REQUIRED)
-if(${GDCM_FOUND})
+#    ExternalProject_Add(
+#            GDCM
+#            GIT_REPOSITORY https://gitee.com/dhz1217/GDCM.git
+#            GIT_TAG hzjp-V1.1.2
+#            CMAKE_ARGS  "-DGDCM_BUILD_DOCBOOK_MANPAGES=OFF"
+#            "-DGDCM_STANDALONE=OFF"
+#            "-DGDCM_BUILD_TESTING_DEFAULT=OFF"
+#            "-DGDCM_BUILD_SHARED_LIBS=ON"
+#            "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/GDCM_install"
+#            "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+#            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/GDCM
+#            INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install
+#    )
+#
+FIND_PACKAGE(GDCM REQUIRED)
+#
+#  GDCM 库的版本采用  hzjp-V1.1.2 的版本， 含有公开的 CodeFrameIntoBuffer 接口
+#
+if (${GDCM_FOUND})
     message(STATUS "GDCM found. JPEG2000 编解码用GDCM")
     INCLUDE(${GDCM_USE_FILE})
     SET(GDCM_LIBRARIES
@@ -54,85 +57,83 @@ if(${GDCM_FOUND})
             gdcmjpeg8
             gdcmjpeg12
             gdcmjpeg16
-            gdcmmd5
             gdcmMEXD
             gdcmMSFF
             gdcmopenjp2
             gdcmuuid
             gdcmzlib
-            socketxx
             )
     SET(JPEG2000 2)
-else(${GDCM_FOUND})
-    message(WARNING "WARNING: GDCM not found. Disabling interoperability tests")
-endif(${GDCM_FOUND})
+else (${GDCM_FOUND})
+    message(WARNING "WARNING: GDCM not found. JPEG2000 Not Supported")
+endif (${GDCM_FOUND})
 
 ############################
 
 # Select the proper charset conversion libraries according to the charset conversion method
 #------------------------------------------------------------------------------------------
-if("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICONV*")
+if ("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICONV*")
     message("Using ICONV")
     add_definitions(-DIMEBRA_USE_ICONV)
-    if(APPLE)
+    if (APPLE)
         set(imebra_libraries ${imebra_libraries} iconv)
-    endif(APPLE)
-elseif("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICU*")
+    endif (APPLE)
+elseif ("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*ICU*")
     message("Using ICU")
     add_definitions(-DIMEBRA_USE_ICU)
     set(imebra_libraries ${imebra_libraries} icuuc)
     set(imebra_libraries ${imebra_libraries} icuio)
-elseif("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*JAVA*")
+elseif ("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*JAVA*")
     message("Using JAVA")
     add_definitions(-DIMEBRA_USE_JAVA)
-elseif("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*WINDOWS*")
+elseif ("*${IMEBRA_CHARSET_CONVERSION}*" STREQUAL "*WINDOWS*")
     message("Using WINDOWS CHARSET CONVERSION")
     add_definitions(-DIMEBRA_USE_WINDOWS_CHARSET)
-else()
-    if(WIN32)
+else ()
+    if (WIN32)
         message("Using WINDOWS CHARSET CONVERSION (default)")
         add_definitions(-DIMEBRA_USE_WINDOWS_CHARSET)
-    else(WIN32)
+    else (WIN32)
         message("Using ICONV (default)")
         add_definitions(-DIMEBRA_USE_ICONV)
-        if(APPLE)
+        if (APPLE)
             set(imebra_libraries ${imebra_libraries} iconv)
-        endif(APPLE)
-    endif(WIN32)
-endif()
+        endif (APPLE)
+    endif (WIN32)
+endif ()
 
 # Set the proper logging preprocessor macros
 #-------------------------------------------
-if(IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
+if (IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
     add_definitions(-DIMEBRA_LOGGING_LOG4CXX)
     set(imebra_libraries ${imebra_libraries} log4cxx) # Log4cxx needs additional libraries
-elseif(IMEBRA_LOG_FRAMEWORK MATCHES SYSLOG)
+elseif (IMEBRA_LOG_FRAMEWORK MATCHES SYSLOG)
     add_definitions(-DIMEBRA_LOGGING_SYSLOG)
-elseif(IMEBRA_LOG_FRAMEWORK MATCHES COUT)
+elseif (IMEBRA_LOG_FRAMEWORK MATCHES COUT)
     add_definitions(-DIMEBRA_LOGGING_COUT)
-elseif(IMEBRA_LOG_FRAMEWORK MATCHES APPLE)
+elseif (IMEBRA_LOG_FRAMEWORK MATCHES APPLE)
     add_definitions(-DIMEBRA_LOGGING_APPLE)
-elseif(IMEBRA_LOG_FRAMEWORK MATCHES ANDROID)
+elseif (IMEBRA_LOG_FRAMEWORK MATCHES ANDROID)
     add_definitions(-DIMEBRA_LOGGING_ANDROID)
-endif(IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
+endif (IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
 
-if(IMEBRA_LOG_LEVEL)
+if (IMEBRA_LOG_LEVEL)
     add_definitions(-DIMEBRA_LOG_LEVEL_${IMEBRA_LOG_LEVEL})
-endif(IMEBRA_LOG_LEVEL)
+endif (IMEBRA_LOG_LEVEL)
 
 
 # For IPhone build a static library, otherwise build a dynamic library
 #---------------------------------------------------------------------
-if(NOT DEFINED IMEBRA_SHARED_STATIC)
+if (NOT DEFINED IMEBRA_SHARED_STATIC)
     set(IMEBRA_SHARED_STATIC "SHARED")
-endif(NOT DEFINED IMEBRA_SHARED_STATIC)
+endif (NOT DEFINED IMEBRA_SHARED_STATIC)
 
-if(APPLE)
+if (APPLE)
     set(IMEBRA_OBJC 1)
-    if("*${CMAKE_SYSTEM_NAME}*" STREQUAL "*iOS*")
+    if ("*${CMAKE_SYSTEM_NAME}*" STREQUAL "*iOS*")
         set(IMEBRA_SHARED_STATIC "STATIC")
-    endif()
-endif(APPLE)
+    endif ()
+endif (APPLE)
 
 
 ##############################################
@@ -145,8 +146,6 @@ endif(APPLE)
 #   spdlog         v1.9.2
 #   https://github.com/jbeder/yaml-cpp               yaml-cpp-0.7.0
 ##############################################
-
-
 
 
 add_definitions(-DIMEBRA_DLL)
@@ -165,7 +164,7 @@ set(imebra_objc_include "")
 set(imebra_objc_include_dir "")
 set(imebra_objc_gnustep_dir "")
 
-if("${IMEBRA_OBJC}" STREQUAL "1")
+if ("${IMEBRA_OBJC}" STREQUAL "1")
 
     file(GLOB imebra_objc_src "${CMAKE_CURRENT_SOURCE_DIR}/wrappers/objectivec/src/*.*")
     file(GLOB imebra_implementation_src_objc "${CMAKE_CURRENT_SOURCE_DIR}/library/implementation/*.mm")
@@ -175,65 +174,65 @@ if("${IMEBRA_OBJC}" STREQUAL "1")
     set(imebra_objc_include_dir ${CMAKE_CURRENT_SOURCE_DIR}/wrappers/objectivec/include)
 
     set(objc_compiler_flags "")
-    if(APPLE)
+    if (APPLE)
         set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -framework Foundation -framework CoreServices")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework Foundation -framework CoreServices")
         set(objc_compiler_flags "${objc_compiler_flags} -fobjc-arc")
-        if(IOS)
+        if (IOS)
             set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -framework UIKit")
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework UIKit")
-        else()
+        else ()
             set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -framework AppKit")
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework AppKit")
-        endif()
-    else()
+        endif ()
+    else ()
         set(objc_compiler_flags "${objc_compiler_flags} -fconstant-string-class=NSConstantString")
         set(imebra_objc_gnustep_dir "/usr/include/GNUstep")
         set(imebra_libraries ${imebra_libraries} gnustep-base objc)
-    endif()
+    endif ()
 
-    if(NOT "${objc_compiler_flags}" STREQUAL "")
+    if (NOT "${objc_compiler_flags}" STREQUAL "")
 
-        foreach(objcfile ${imebra_objc_src})
+        foreach (objcfile ${imebra_objc_src})
             set_source_files_properties(${objcfile} PROPERTIES COMPILE_FLAGS ${objc_compiler_flags})
-        endforeach(objcfile ${imebra_objc_src})
+        endforeach (objcfile ${imebra_objc_src})
 
-    endif(NOT "${objc_compiler_flags}" STREQUAL "")
+    endif (NOT "${objc_compiler_flags}" STREQUAL "")
 
-endif("${IMEBRA_OBJC}" STREQUAL "1")
+endif ("${IMEBRA_OBJC}" STREQUAL "1")
 
 
-if(NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
+if (NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
     link_directories(${LINK_DIRECTORIES} ${ADDITIONAL_LIB_PATH})
-endif(NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
+endif (NOT "${ADDITIONAL_LIB_PATH}" STREQUAL "")
 
 # Add jpeg2000 if specified
-if("${JPEG2000}" STREQUAL "2")
+if ("${JPEG2000}" STREQUAL "2")
     add_definitions(-DJPEG2000)
     add_definitions(-DJPEG2000_V2)
     message(STATUS "Adding experimental Jpeg2000 codec (based on OpenJpeg v2.X)")
-endif("${JPEG2000}" STREQUAL "2")
+endif ("${JPEG2000}" STREQUAL "2")
 
 add_library(imebra ${IMEBRA_SHARED_STATIC}
-    ${imebra_implementation_src}
-    ${imebra_implementation_src_objc}
-    ${imebra_implementation_include}
-    ${imebra_objc_src}
-    ${imebra_objc_include}
-    ${imebra_include}
-    ${imebra_src}
-    ${imebra_interface}
-)
+        ${imebra_implementation_src}
+        ${imebra_implementation_src_objc}
+        ${imebra_implementation_include}
+        ${imebra_objc_src}
+        ${imebra_objc_include}
+        ${imebra_include}
+        ${imebra_src}
+        ${imebra_interface}
+        )
 
-if(NOT "${ADDITIONAL_INCLUDE_PATH}" STREQUAL "")
+if (NOT "${ADDITIONAL_INCLUDE_PATH}" STREQUAL "")
     target_include_directories(imebra PRIVATE ${ADDITIONAL_INCLUDE_PATH})
-endif(NOT "${ADDITIONAL_INCLUDE_PATH}" STREQUAL "")
+endif (NOT "${ADDITIONAL_INCLUDE_PATH}" STREQUAL "")
 
-if("${IMEBRA_OBJC}" STREQUAL "1")
+if ("${IMEBRA_OBJC}" STREQUAL "1")
     set(HIDDEN_FLAGS "")
-else("${IMEBRA_OBJC}" STREQUAL "1")
+else ("${IMEBRA_OBJC}" STREQUAL "1")
     set(HIDDEN_FLAGS "-fvisibility=hidden -fvisibility-inlines-hidden")
-endif("${IMEBRA_OBJC}" STREQUAL "1")
+endif ("${IMEBRA_OBJC}" STREQUAL "1")
 
 
 # Add flags specific to the compiler
@@ -244,36 +243,36 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /bigobj")
     set(imebra_libraries ${imebra_libraries} Kernel32)
 
-else()
+else ()
 
     message(STATUS "GNU or Clang detected, adding compile flags")
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wpedantic -Wconversion -Wfloat-equal ${HIDDEN_FLAGS}")
     set(imebra_libraries ${imebra_libraries} pthread)
-    if("${EMBED_BITCODE}" STREQUAL "1")
+    if ("${EMBED_BITCODE}" STREQUAL "1")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode")
-    endif("${EMBED_BITCODE}" STREQUAL "1")
+    endif ("${EMBED_BITCODE}" STREQUAL "1")
 
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
             message("Debug mode, enabling coverage")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
             set(imebra_libraries ${imebra_libraries} gcov)
-        endif()
-    endif()
+        endif ()
+    endif ()
 
-endif()
+endif ()
 
 target_include_directories(imebra PRIVATE ${imebra_objc_gnustep_dir})
-target_link_libraries(imebra ${imebra_libraries}  ${GDCM_LIBRARIES})
+target_link_libraries(imebra ${imebra_libraries} ${GDCM_LIBRARIES})
 
 
 # Define dependency libraries
 #----------------------------
 target_link_libraries(imebra ${imebra_libraries})
 
-message (STATUS "OBJC INCLUDE:${imebra_objc_include_dir}")
-message (STATUS "GNU INCLUDE:${imebra_objc_gnustep_dir}")
+message(STATUS "OBJC INCLUDE:${imebra_objc_include_dir}")
+message(STATUS "GNU INCLUDE:${imebra_objc_gnustep_dir}")
 
 # Define Imebra public folder
 #----------------------------
@@ -285,27 +284,26 @@ target_include_directories(imebra PUBLIC $<BUILD_INTERFACE:${imebra_objc_include
 #---------------------------------------------------------------------------------
 if ("$ENV{IMEBRA_MAJOR_VERSION}" STREQUAL "")
     set(IMEBRA_MAJOR_VERSION "5")
-else("$ENV{IMEBRA_MAJOR_VERSION}" STREQUAL "")
+else ("$ENV{IMEBRA_MAJOR_VERSION}" STREQUAL "")
     set(IMEBRA_MAJOR_VERSION "$ENV{IMEBRA_MAJOR_VERSION}")
-endif("$ENV{IMEBRA_MAJOR_VERSION}" STREQUAL "")
+endif ("$ENV{IMEBRA_MAJOR_VERSION}" STREQUAL "")
 
 if ("$ENV{IMEBRA_MINOR_VERSION}" STREQUAL "")
     set(IMEBRA_MINOR_VERSION "0")
-else("$ENV{IMEBRA_MINOR_VERSION}" STREQUAL "")
+else ("$ENV{IMEBRA_MINOR_VERSION}" STREQUAL "")
     set(IMEBRA_MINOR_VERSION "$ENV{IMEBRA_MINOR_VERSION}")
-endif("$ENV{IMEBRA_MINOR_VERSION}" STREQUAL "")
+endif ("$ENV{IMEBRA_MINOR_VERSION}" STREQUAL "")
 
 if ("$ENV{IMEBRA_REVISION}" STREQUAL "")
     set(IMEBRA_REVISION "0")
-else("$ENV{IMEBRA_REVISION}" STREQUAL "")
+else ("$ENV{IMEBRA_REVISION}" STREQUAL "")
     set(IMEBRA_REVISION "$ENV{IMEBRA_REVISION}")
-endif("$ENV{IMEBRA_REVISION}" STREQUAL "")
+endif ("$ENV{IMEBRA_REVISION}" STREQUAL "")
 
 set(IMEBRA_VERSION "${IMEBRA_MAJOR_VERSION}.${IMEBRA_MINOR_VERSION}.${IMEBRA_REVISION}")
 
 set_target_properties(imebra PROPERTIES VERSION ${IMEBRA_VERSION}
-                                          SOVERSION ${IMEBRA_MAJOR_VERSION})
-
+        SOVERSION ${IMEBRA_MAJOR_VERSION})
 
 
 if (NOT IOS)
@@ -331,70 +329,78 @@ if (NOT IOS)
     find_package(Threads REQUIRED)
 
 
+    if ("${CMAKE_TESTING_ENABLED}" STREQUAL "ON")
 
-    # Download and install GoogleTest
-    ExternalProject_Add(
-            GTest
-            GIT_REPOSITORY https://gitee.com/dhz1217/googletest
-            GIT_TAG release-1.11.0
-            CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
-            INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
-    )
+        message(WARNING "WARNING:  开启测试, -DCMAKE_TESTING_ENABLED=OFF 可以关闭测试")
 
-    set(imebra_tests_objc_src "")
-    file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h" )
-    file(GLOB imebra_tests_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
-    if("${IMEBRA_OBJC}" STREQUAL "1")
 
-        file(GLOB imebra_tests_objc_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/objectivec/*.m*")
+        # Download and install GoogleTest
+        ExternalProject_Add(
+                GTest
+                GIT_REPOSITORY https://gitee.com/dhz1217/googletest
+                GIT_TAG release-1.11.0
+                CMAKE_ARGS "-Dgtest_force_shared_crt=ON" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/gtest_install" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+                PREFIX ${CMAKE_CURRENT_BINARY_DIR}/gtest
+                INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/gtest_install
+        )
 
-        if(NOT "${objc_compiler_flags}" STREQUAL "")
+        set(imebra_tests_objc_src "")
+        file(GLOB imebra_tests_include "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h")
+        file(GLOB imebra_tests_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+        if ("${IMEBRA_OBJC}" STREQUAL "1")
 
-            foreach(objcfile ${imebra_tests_objc_src})
-                set_source_files_properties(${objcfile} PROPERTIES COMPILE_FLAGS ${objc_compiler_flags})
-            endforeach(objcfile ${imebra_objc_src})
+            file(GLOB imebra_tests_objc_src "${CMAKE_CURRENT_SOURCE_DIR}/tests/objectivec/*.m*")
 
-        endif(NOT "${objc_compiler_flags}" STREQUAL "")
+            if (NOT "${objc_compiler_flags}" STREQUAL "")
 
-    endif("${IMEBRA_OBJC}" STREQUAL "1")
+                foreach (objcfile ${imebra_tests_objc_src})
+                    set_source_files_properties(${objcfile} PROPERTIES COMPILE_FLAGS ${objc_compiler_flags})
+                endforeach (objcfile ${imebra_objc_src})
 
-    link_directories(${CMAKE_CURRENT_BINARY_DIR}/gtest_install/lib)
-    add_executable(ImebraTests
-            ${imebra_tests_include}
-            ${imebra_tests_src}
-            ${imebra_tests_objc_src}
+            endif (NOT "${objc_compiler_flags}" STREQUAL "")
 
-    )
-    add_dependencies(ImebraTests GTest)
-    target_include_directories(ImebraTests PRIVATE
-            ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include
-            ${DCMTK_INCLUDE_DIRS})
+        endif ("${IMEBRA_OBJC}" STREQUAL "1")
 
-    # GTest always adds "d" to debug build, no matter what's the platform
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-        target_link_libraries(ImebraTests imebra  ${GDCM_LIBRARIES}  "gtestd")
-    else ()
-        target_link_libraries(ImebraTests imebra  ${GDCM_LIBRARIES}  "gtest")
-    endif ()
+        link_directories(${CMAKE_CURRENT_BINARY_DIR}/gtest_install/lib)
+        add_executable(ImebraTests
+                ${imebra_tests_include}
+                ${imebra_tests_src}
+                ${imebra_tests_objc_src}
 
-    if (${DCMTK_FOUND})
-        target_link_libraries(ImebraTests dcmdata dcmimage)
-    endif ()
+                )
+        add_dependencies(ImebraTests GTest)
+        target_include_directories(ImebraTests PRIVATE
+                ${CMAKE_CURRENT_BINARY_DIR}/gtest_install/include
+                ${DCMTK_INCLUDE_DIRS})
 
-    ##############################################
-    #
-    # RUN TESTS
-    #
-    ##############################################
-    enable_testing()
+        # GTest always adds "d" to debug build, no matter what's the platform
+        if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+            target_link_libraries(ImebraTests imebra ${GDCM_LIBRARIES} "gtestd")
+        else ()
+            target_link_libraries(ImebraTests imebra ${GDCM_LIBRARIES} "gtest")
+        endif ()
 
-if(IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
-    add_test(RunImebraTests ImebraTests --corruptedFilesFolder=${CMAKE_CURRENT_SOURCE_DIR}/tests/corruptedfiles --testLogFile=${CMAKE_CURRENT_BINARY_DIR}/imebraTestLogFile.txt)
-else()
-    add_test(RunImebraTests ImebraTests --corruptedFilesFolder=${CMAKE_CURRENT_SOURCE_DIR}/tests/corruptedfiles)
-endif()
+        if (${DCMTK_FOUND})
+            target_link_libraries(ImebraTests dcmdata dcmimage)
+        endif ()
 
+        ##############################################
+        #
+        # RUN TESTS
+        #
+        ##############################################
+        enable_testing()
+
+        if (IMEBRA_LOG_FRAMEWORK MATCHES LOG4CXX)
+            add_test(RunImebraTests ImebraTests --corruptedFilesFolder=${CMAKE_CURRENT_SOURCE_DIR}/tests/corruptedfiles --testLogFile=${CMAKE_CURRENT_BINARY_DIR}/imebraTestLogFile.txt)
+        else ()
+            add_test(RunImebraTests ImebraTests --corruptedFilesFolder=${CMAKE_CURRENT_SOURCE_DIR}/tests/corruptedfiles)
+        endif ()
+
+    else()
+        message(WARNING "WARNING:  关闭测试, -DCMAKE_TESTING_ENABLED=ON 可以打开测试")
+
+    endif ("${CMAKE_TESTING_ENABLED}" STREQUAL "ON")
 
     ##############################################
     #
@@ -405,10 +411,10 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(dicom2jpeg ${dicom2jpeg_sources}   )
+    add_executable(dicom2jpeg ${dicom2jpeg_sources})
 
 
-    target_link_libraries(dicom2jpeg imebra  ${GDCM_LIBRARIES} )
+    target_link_libraries(dicom2jpeg imebra ${GDCM_LIBRARIES})
 
 
     ##############################################
@@ -420,9 +426,9 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(changeTransferSyntax ${changeTransferSyntax_sources}   )
+    add_executable(changeTransferSyntax ${changeTransferSyntax_sources})
 
-    target_link_libraries(changeTransferSyntax imebra  ${GDCM_LIBRARIES} )
+    target_link_libraries(changeTransferSyntax imebra ${GDCM_LIBRARIES})
 
 
     ##############################################
@@ -436,7 +442,7 @@ endif()
     #------------------------------------
     add_executable(dicomDirItems ${dicomdirItems_sources})
 
-    target_link_libraries(dicomDirItems  imebra  ${GDCM_LIBRARIES}  )
+    target_link_libraries(dicomDirItems imebra ${GDCM_LIBRARIES})
 
     ##############################################
     #
@@ -447,10 +453,9 @@ endif()
 
     # Add the source files to the project
     #------------------------------------
-    add_executable(dicomValidate ${dicomValidate_sources} )
+    add_executable(dicomValidate ${dicomValidate_sources})
 
-    target_link_libraries(dicomValidate imebra   ${GDCM_LIBRARIES}   -lpthread -ldl )
-
+    target_link_libraries(dicomValidate imebra ${GDCM_LIBRARIES} -lpthread -ldl)
 
 
     ##############################################
@@ -460,48 +465,11 @@ endif()
 
 
     file(GLOB scpExample_sources "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.cpp"
-                                 "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.h"
-
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/*.h"
     )
-
-
-
-    # Add the source files to the project
-    #------------------------------------
-#    SET(GDCM_DIR ${CMAKE_CURRENT_BINARY_DIR}/GDCM_install/lib/gdcm-3.1)
-#    message(STATUS "GDCM found. JPEG2000 编解码用GDCM  and ${GDCM_DIR}")
-#    FIND_PACKAGE(GDCM  REQUIRED)
-#    if(${GDCM_FOUND})
-#        message(STATUS "GDCM found. JPEG2000 编解码用GDCM")
-#        INCLUDE(${GDCM_USE_FILE})
-#        SET(GDCM_LIBRARIES
-#                gdcmcharls
-#                gdcmCommon
-#                gdcmDICT
-#                gdcmDSED
-#                gdcmexpat
-#                gdcmIOD
-#                gdcmjpeg8
-#                gdcmjpeg12
-#                gdcmjpeg16
-#                gdcmmd5
-#                gdcmMEXD
-#                gdcmMSFF
-#                gdcmopenjp2
-#                gdcmuuid
-#                gdcmzlib
-#                socketxx
-#                )
-#        SET(JPEG2000 2)
-#    else(${GDCM_FOUND})
-#        message(WARNING "WARNING: GDCM not found. Disabling interoperability tests")
-#    endif(${GDCM_FOUND})
-#
-#    file(COPY  ${CMAKE_CURRENT_SOURCE_DIR}/examples/c++/scpExample/config.yaml
-#                DESTINATION  ${CMAKE_CURRENT_BINARY_DIR})
     add_executable(scpExample ${scpExample_sources})
-    message(STATUS  "scpExample Dir:${GDCM_LIBRARIES}")
-    target_link_libraries(scpExample imebra   ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
+    message(STATUS "scpExample Dir:${GDCM_LIBRARIES}")
+    target_link_libraries(scpExample imebra ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
 
 endif ()
 
@@ -537,18 +505,18 @@ set(POSTRM_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/postrm")
 
 # Generate postinst, prerm and postrm hooks
 file(WRITE "${POSTINST_SCRIPT}" "#!/bin/sh\n\nset -e\n")
-file(WRITE "${PRERM_SCRIPT}"    "#!/bin/sh\n\nset -e\n")
-file(WRITE "${POSTRM_SCRIPT}"   "#!/bin/sh\n\nset -e\n")
+file(WRITE "${PRERM_SCRIPT}" "#!/bin/sh\n\nset -e\n")
+file(WRITE "${POSTRM_SCRIPT}" "#!/bin/sh\n\nset -e\n")
 
 # Generate shlibs
 file(WRITE "${SHLIBS_FILE}" "libimebra ${IMEBRA_MAJOR_VERSION} ${CPACK_PACKAGE_NAME}\n")
 file(APPEND "${POSTINST_SCRIPT}"
-     "if [ \"$1\" = \"configure\" ]; then
+        "if [ \"$1\" = \"configure\" ]; then
         ldconfig
 fi
 ")
 file(APPEND "${POSTRM_SCRIPT}"
-     "if [ \"$1\" = \"remove\" ]; then
+        "if [ \"$1\" = \"remove\" ]; then
         ldconfig
 fi")
 
@@ -558,7 +526,7 @@ set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${SHLIBS_FILE};${POSTINST_SCRIPT};${PRER
 
 # Write license file
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/copyright"
-     "Copyright (C) 2019 ${CPACK_DEBIAN_PACKAGE_MAINTAINER}")
+        "Copyright (C) 2019 ${CPACK_DEBIAN_PACKAGE_MAINTAINER}")
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/copyright"
         DESTINATION "share/doc/${CPACK_PACKAGE_NAME}/"
@@ -568,17 +536,17 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/copyright"
         GROUP_READ
         WORLD_READ)
 
-install(TARGETS imebra EXPORT imebraConfig      LIBRARY DESTINATION lib
-                                                ARCHIVE DESTINATION lib
-                                                RUNTIME DESTINATION bin
-                                                PUBLIC_HEADER DESTINATION include
-                                                COMPONENT "Imebra Shared library")
+install(TARGETS imebra EXPORT imebraConfig LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        PUBLIC_HEADER DESTINATION include
+        COMPONENT "Imebra Shared library")
 
 install(FILES ${imebra_interface} DESTINATION include/imebra COMPONENT "Imebra include files")
 
-if("${IMEBRA_OBJC}" STREQUAL "1")
+if ("${IMEBRA_OBJC}" STREQUAL "1")
     install(FILES ${imebra_objc_include} DESTINATION include/imebraobjc COMPONENT "Imebra objc include files")
-endif("${IMEBRA_OBJC}" STREQUAL "1")
+endif ("${IMEBRA_OBJC}" STREQUAL "1")
 
 install(EXPORT imebraConfig DESTINATION share/imebra/cmake)
 
