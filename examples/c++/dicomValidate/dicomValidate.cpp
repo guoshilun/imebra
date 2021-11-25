@@ -64,7 +64,10 @@ void outputDatasetTags(const DataSet& dataset, const std::wstring& prefix)
         }
         catch(const DictionaryUnknownTagError&)
         {
-            std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (Unknown tag)" << std::endl;
+            std::wstring  un= L" (Unknown tag)";
+            printTagInfo(prefix , (*scanTags).getGroupId()  ,  (*scanTags).getTagId()  ,  un);
+
+         //   std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (Unknown tag)" << std::endl;
         }
 
         Tag tag(dataset.getTag(*scanTags));
