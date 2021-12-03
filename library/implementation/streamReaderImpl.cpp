@@ -370,7 +370,7 @@ void streamReader::seekForward(std::uint32_t newPosition)
     }
     else
     {
-        // Use read to forward the data to the write streams
+        // Use read to forward the data to write streams
         std::uint8_t buffer[IMEBRA_STREAM_CONTROLLER_MEMORY_SIZE];
         size_t readSize(sizeof(buffer));
         while(newPosition != 0)
