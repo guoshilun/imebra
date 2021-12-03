@@ -81,11 +81,11 @@ int main(int argc, char *argv[]) {
         std::shared_ptr<RuntimeConfig>  configPtr = std::make_shared<RuntimeConfig>( runtimeConfig);
 
 
-        bool createLog = configPtr.get()->setupSpdlogRuntime();
+        bool createLog = configPtr->setupSpdlogRuntime();
         if (!createLog) {
             return 0;
         }
-        configPtr.get()->setupRabbitDispatcher();
+        configPtr->setupRabbitDispatcher();
 
         std::mutex cv_m;
         std::unique_lock<std::mutex> lk(cv_m);
