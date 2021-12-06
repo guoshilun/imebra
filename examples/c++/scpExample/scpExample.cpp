@@ -27,7 +27,7 @@
 #ifndef  SPDLOG_ACTIVE_LEVEL
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE//必须定义这个宏,才能输出文件名和行号
 #endif
-
+bool endsWith(const std::string &mainStr, const std::string &toMatch);
 ///
 /// \brief main
 ///
@@ -39,7 +39,6 @@
 int main(int argc, char *argv[]) {
 
 
-
     std::ios::sync_with_stdio(false);
     std::locale lc("zh_CN.UTF-8");
     std::locale::global(lc);
@@ -48,13 +47,14 @@ int main(int argc, char *argv[]) {
     try {
         // Check the number of received arguments
         if (argc < 6) {
-            std::wcout << L"Usage: scpExample port AET  dcmSaveDirectory  dcmLogDir  dcmConfigYamlFilePath" << std::endl;
+            std::wcout << L"Usage: scpExample port AET  dcmSaveDirectory  dcmLogDir  dcmConfigYamlFilePath"
+                       << std::endl;
             return 1;
         }
 
         std::string savedDirectory(argv[3]);
         std::string logDirectory(argv[4]);
-        std::string configPath (argv[5]);
+        std::string configPath(argv[5]);
 
         unsigned long length = savedDirectory.length();
         if (savedDirectory[length - 1] != '/') {
@@ -71,14 +71,24 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
-        if (access(configPath.c_str(), F_OK | R_OK ) != 0) {
+        if (access(configPath.c_str(), F_OK | R_OK) != 0) {
             std::wcout << "DICOM Config.yaml Directory： " << argv[5] << " Not Exists  or  Deny Access !" << std::endl;
             return 0;
         }
 
+        std::string configFile;
+        if (endsWith(configPath, "/")) {
+            configFile = configPath + "config.yaml";
+        } else {
+            configFile = configPath + "/config.yaml";
+        }
+        if (access(configFile.c_str(), F_OK | R_OK) != 0) {
+            std::wcout << "DICOM config.yaml File ： " << configFile.c_str() << " Not Exists  or  Deny Access !" << std::endl;
+            return 0;
+        }
 
-        RuntimeConfig  runtimeConfig(savedDirectory , logDirectory , configPath);
-        std::shared_ptr<RuntimeConfig>  configPtr = std::make_shared<RuntimeConfig>( runtimeConfig);
+        RuntimeConfig runtimeConfig(savedDirectory, logDirectory, configFile);
+        std::shared_ptr<RuntimeConfig> configPtr = std::make_shared<RuntimeConfig>(runtimeConfig);
 
 
         bool createLog = configPtr->setupSpdlogRuntime();
@@ -105,8 +115,8 @@ int main(int argc, char *argv[]) {
 
         // Listen in a lambda execute in another thread
         std::thread listeningThread(
-                [&listenForConnections, &aet, &savedDirectory,&configPtr]() {
-                    std::once_flag  connectionFlag;
+                [&listenForConnections, &aet, &savedDirectory, &configPtr]() {
+                    std::once_flag connectionFlag;
                     try {
                         for (;;) {
 
@@ -115,7 +125,8 @@ int main(int argc, char *argv[]) {
                             // Blocks until the TCPListener is terminated (throws EOF) or until a connection arrives
                             imebra::TCPStream newTCPStream = listenForConnections.waitForConnection();
                             // Launch a thread that processes the dimse commands on the new connection
-                            std::thread commandThread(dimseCommands, newTCPStream, aet, savedDirectory, configPtr.get());
+                            std::thread commandThread(dimseCommands, newTCPStream, aet, savedDirectory,
+                                                      configPtr.get());
 
                             // We detach the thread, so we can forget about it.
                             commandThread.detach();
@@ -125,11 +136,11 @@ int main(int argc, char *argv[]) {
                     }
                     catch (const std::exception &e) {
                         // An error occurred. Print it out.
-                        spdlog::error( "listeningThread 运行时错误:{}" ,e.what());
+                        spdlog::error("listeningThread 运行时错误:{}", e.what());
                         std::wcout << e.what() << std::endl;
                     }
 
-                    std::call_once(connectionFlag,[&]() {   // Abort all open associations
+                    std::call_once(connectionFlag, [&]() {   // Abort all open associations
                         std::lock_guard<std::mutex> lock(lockActiveAssociations);
                         for (imebra::AssociationBase *pAssociation: activeAssociations) {
                             pAssociation->abort();
@@ -142,7 +153,7 @@ int main(int argc, char *argv[]) {
         //  loopThrea.join();
         spdlog::info("DicomCStoreSCP Service  is listening on {}@{}, File Save To:{},Log Save To:{},Config  From:{}",
                      port, aet,
-                     savedDirectory,logDirectory, configPath);
+                     savedDirectory, logDirectory, configPath);
 
         cv.wait(lk, [] { return false; });
 
@@ -158,4 +169,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+}
+
+
+bool endsWith(const std::string &mainStr, const std::string &toMatch) {
+    if (mainStr.size() >= toMatch.size() &&
+        mainStr.compare(mainStr.size() - toMatch.size(), toMatch.size(), toMatch) == 0)
+        return true;
+    else
+        return false;
 }
