@@ -17,7 +17,7 @@ private:
      *  @param  connection
      *  @param  message
      */
-    virtual void onError(AMQP::TcpConnection *connection, const char *message) override {
+    void onError(AMQP::TcpConnection * , const char *message) override {
         spdlog::debug("Connect To RabbitMQ Server Error：{0}", message);
     }
 
@@ -25,7 +25,7 @@ private:
      *  Method that is called when the TCP connection ends up in a connected state
      *  @param  connection  The TCP connection
      */
-    virtual void onConnected(AMQP::TcpConnection *connection) override {
+    void onConnected(AMQP::TcpConnection *) override {
         spdlog::debug("Connect To RabbitMQ Server Success");
     }
 

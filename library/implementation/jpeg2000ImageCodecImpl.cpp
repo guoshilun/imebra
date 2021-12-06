@@ -265,17 +265,17 @@ namespace imebra {
 //
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-            std::shared_ptr<image> jpeg2000ImageCodec::getImage(const std::string &transferSyntax,
+            std::shared_ptr<image> jpeg2000ImageCodec::getImage(const std::string & ,
                                                                 const std::string &iimageColorSpace,
-                                                                std::uint32_t channelsNumber,
+                                                                std::uint32_t  ,
                                                                 std::uint32_t imageWidth,
                                                                 std::uint32_t imageHeight,
-                                                                bool bSubsampledX,
-                                                                bool bSubsampledY,
-                                                                bool bInterleaved,
+                                                                bool  ,
+                                                                bool  ,
+                                                                bool  ,
                                                                 bool b2Complement,
-                                                                std::uint8_t allocatedBits,
-                                                                std::uint8_t storedBits,
+                                                                std::uint8_t  ,
+                                                                std::uint8_t  ,
                                                                 std::uint8_t highBit,
                                                                 std::shared_ptr<streamReader> pStream) const {
                 IMEBRA_FUNCTION_START() ;
@@ -421,13 +421,13 @@ namespace imebra {
             void jpeg2000ImageCodec::setImage(
                     std::shared_ptr<streamWriter> pDestStream,
                     std::shared_ptr<const image> pSourceImage,
-                    const std::string &transferSyntax,
-                    imageQuality_t imageQuality,
+                    const std::string & ,
+                    imageQuality_t  ,
                     std::uint32_t allocatedBits,
-                    bool bSubSampledX,
-                    bool bSubSampledY,
-                    bool bInterleaved,
-                    bool b2Complement) const {
+                    bool  ,
+                    bool  ,
+                    bool  ,
+                    bool  ) const {
                 IMEBRA_FUNCTION_START() ;
 
 

@@ -19,8 +19,8 @@ if ("*${CMAKE_BUILD_TYPE}*" STREQUAL "**")
 endif ()
 
 set(imebra_libraries "")
-SET(CMAKE_C_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
-SET(CMAKE_CXX_FLAGS_DEBUG "-g   -Wno-unused -Wno-unused-parameter  -Wno-unused-function -Wignored-qualifiers")
+SET(CMAKE_C_FLAGS_DEBUG "-g    -Wignored-qualifiers")
+SET(CMAKE_CXX_FLAGS_DEBUG "-g    -Wignored-qualifiers")
 SET(IMEBRA_CHARSET_CONVERSION ICONV)
 SET(IMEBRA_LOG_LEVEL OFF)
 

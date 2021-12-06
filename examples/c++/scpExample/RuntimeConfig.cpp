@@ -56,19 +56,19 @@ void RuntimeConfig::fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP:
 }
 
 void RuntimeConfig::createQueue(void *req) {
-    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    auto *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
     DicomMessageHandler mqHandler(loop);
     AMQP::Address mqAddres(ScpConstant::MQ_ADDRESS);
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
-    RabbitMqQueueInfo *cqueue = (RabbitMqQueueInfo *) req;
+    auto *cqueue = (RabbitMqQueueInfo *) req;
 
     AMQP::Table qargs;
     fillTableArgument(cqueue->tableArguments, qargs);
     scpChannel.declareQueue(cqueue->name, AMQP::durable, qargs)
-            .onSuccess([&](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+            .onSuccess([&](const std::string &name, uint32_t  , uint32_t  ) {
                 spdlog::info("create Queue: {} success", name);
             }).onError([&](const char *message) {
                 spdlog::error("create Queue: {} Failed {}", cqueue->name, message);
