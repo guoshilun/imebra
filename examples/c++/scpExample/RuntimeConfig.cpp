@@ -11,30 +11,30 @@
 #include <spdlog/async_logger.h>
 #include <spdlog/async.h>
 #include <iostream>
+#include <utility>
 #include <yaml-cpp/yaml.h>
 #include <unistd.h>
+#include <uuid/uuid.h>
 
-
-
-RuntimeConfig::RuntimeConfig(std::string dicomStore, std::string logDirectory, std::string configFilePath)
+RuntimeConfig::RuntimeConfig(std::string &dicomStore, std::string &logDirectory, std::string &configFilePath)
         : dcmStoreDirectory(dicomStore), dcmLogDirectory(logDirectory), dcmCfgFilePath(configFilePath) {
 
 }
 
 RuntimeConfig::~RuntimeConfig() {
-    modalityConverter.empty();
-    examedBodyPartConverter.empty();
+    modalityConverter.clear();
+    examedBodyPartConverter.clear();
 }
 
 RuntimeConfig::RuntimeConfig(const RuntimeConfig &other)
         : dcmStoreDirectory(other.dcmStoreDirectory), dcmLogDirectory(other.dcmLogDirectory),
           dcmCfgFilePath(other.dcmCfgFilePath) {
 
-    for (auto ax: other.modalityConverter) {
+    for (const auto &ax: other.modalityConverter) {
         modalityConverter.push_back(ax);
     }
 
-    for (auto ab: other.examedBodyPartConverter) {
+    for (const auto &ab: other.examedBodyPartConverter) {
         examedBodyPartConverter.push_back(ab);
     }
 }
@@ -44,7 +44,7 @@ void RuntimeConfig::fillTableArgument(std::vector<RabbitMqArgument> &args, AMQP:
     if (args.empty()) {
         return;
     }
-    for (auto a: args) {
+    for (const auto &a: args) {
         if (a.type == "num") {
             table[a.key] = std::stoi(a.value);
         } else if (a.type == "bool") {
@@ -68,7 +68,7 @@ void RuntimeConfig::createQueue(void *req) {
     AMQP::Table qargs;
     fillTableArgument(cqueue->tableArguments, qargs);
     scpChannel.declareQueue(cqueue->name, AMQP::durable, qargs)
-            .onSuccess([&](const std::string &name, uint32_t  , uint32_t  ) {
+            .onSuccess([&](const std::string &name, uint32_t, uint32_t) {
                 spdlog::info("create Queue: {} success", name);
             }).onError([&](const char *message) {
                 spdlog::error("create Queue: {} Failed {}", cqueue->name, message);
@@ -83,7 +83,7 @@ void RuntimeConfig::createQueue(void *req) {
 }
 
 void RuntimeConfig::createExchage(void *req) {
-    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    auto *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
@@ -91,7 +91,7 @@ void RuntimeConfig::createExchage(void *req) {
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
-    RabbitMqExchangeInfo *exchangeInfo = (RabbitMqExchangeInfo *) req;
+    auto *exchangeInfo = (RabbitMqExchangeInfo *) req;
 
     AMQP::ExchangeType chgType = AMQP::ExchangeType::fanout;
     if (exchangeInfo->type == "direct") {
@@ -123,7 +123,7 @@ void RuntimeConfig::createExchage(void *req) {
 }
 
 void RuntimeConfig::bindQueue(void *req) {
-    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    auto *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
@@ -131,7 +131,7 @@ void RuntimeConfig::bindQueue(void *req) {
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
-    RabbitMqBindQueueInfo *bindingInfo = (RabbitMqBindQueueInfo *) req;
+    auto *bindingInfo = (RabbitMqBindQueueInfo *) req;
 
     AMQP::Table bindingTable;
 
@@ -159,7 +159,7 @@ void RuntimeConfig::bindQueue(void *req) {
 }
 
 void RuntimeConfig::bindExchage(void *req) {
-    uv_loop_t *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    auto *loop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     uv_loop_init(loop);
 
     DicomMessageHandler mqHandler(loop);
@@ -167,7 +167,7 @@ void RuntimeConfig::bindExchage(void *req) {
     AMQP::TcpConnection conn(&mqHandler, mqAddres);
     AMQP::TcpChannel scpChannel(&conn);
 
-    RabbitMqBindExchangeInfo *exchangeMap = (RabbitMqBindExchangeInfo *) req;
+    auto *exchangeMap = (RabbitMqBindExchangeInfo *) req;
 
 
     scpChannel.bindExchange(exchangeMap->from, exchangeMap->to, exchangeMap->routingkey)
@@ -191,6 +191,48 @@ void RuntimeConfig::bindExchage(void *req) {
     free(loop);
 }
 
+void RuntimeConfig::random_uuid(char buf[37]) {
+
+    uuid_t uuid;
+    uuid_generate_random(uuid);
+    uuid_unparse(uuid, buf);
+
+
+//    const char *c = "89ab";
+//    char *p = buf;
+//    int n;
+//    for (n = 0; n < 16; ++n) {
+//        long b = random() % 255;
+//        switch (n) {
+//            case 6:
+//                sprintf(p, "4%lx", b % 15);
+//                break;
+//            case 8: {
+//                auto lx = static_cast<unsigned int> (random());
+//                sprintf(p, "%c%lx", c[lx % strlen(c)], b % 15);
+//                }
+//                break;
+//            default:
+//                sprintf(p, "%02lx", b);
+//                break;
+//        }
+//
+//        p += 2;
+//        switch (n) {
+//            case 3:
+//            case 5:
+//            case 7:
+//            case 9:
+//                *p++ = '-';
+//                break;
+//            default:
+//                break;
+//        }
+//    }
+//    *p = 0;
+
+}
+
 void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir) {
     DcmInfo dcmInfo(payload);
 
@@ -199,39 +241,51 @@ void RuntimeConfig::perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataS
 
     std::string seriesUid = dcmInfo.getSeriesUid();
     std::string sopInstUid = dcmInfo.getSopInstUid();
+    std::stringstream ss;
+    ss << dcmStoreDir;
     if (patientId.empty() || studyUid.empty() || seriesUid.empty() || sopInstUid.empty()) {
         spdlog::error(
                 "patientId， studyUid， sereisUid or sopInstUid   not exists or one of those are empty:[{},{},{},{}]",
                 patientId, studyUid, seriesUid, sopInstUid);
+
+        char guid[37];
+        random_uuid(guid);
+        ss << guid << ".dcm";
+        std::string dcmSavePath = ss.str();
+        imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
+
+        ss.clear();
+
         return;
-    }
-    std::stringstream ss;
-    ss << dcmStoreDir;
-    std::vector<std::string> paths;
-    paths.push_back(patientId);
-    paths.push_back(studyUid);
-    paths.push_back(seriesUid);
-    for (std::vector<std::string>::iterator start = paths.begin(); start != paths.end(); start++) {
-        ss << start->c_str();
-        std::string dir = ss.str();
-        if (0 != access(dir.c_str(), F_OK | R_OK | W_OK)) {
-            int rc = mkdir(dir.c_str(), 0777);
-            if (rc != 0) {
-                spdlog::error("create Directory Failed:{}", ss.str());
-                return;
+    } else {
+
+
+        std::vector<std::string> paths;
+        paths.push_back(patientId);
+        paths.push_back(studyUid);
+        paths.push_back(seriesUid);
+        for (const auto &start: paths) {
+            ss << start.c_str();
+            std::string dir = ss.str();
+            if (0 != access(dir.c_str(), F_OK | R_OK | W_OK)) {
+                int rc = mkdir(dir.c_str(), 0777);
+                if (rc != 0) {
+                    spdlog::error("create Directory Failed:{}", ss.str());
+                    return;
+                } else {
+                    spdlog::debug("create Directory Success:{}", ss.str());
+                }
             } else {
-                spdlog::debug("create Directory Success:{}", ss.str());
+                spdlog::debug("directoryExists  And allow RW:{}", ss.str());
             }
-        }else {
-            spdlog::debug("directoryExists  And allow RW:{}", ss.str());
+            ss << "/";
         }
-        ss << "/";
+        ss << sopInstUid.c_str() << ".dcm";
+        std::string dcmSavePath = ss.str();
+        ss.clear();
+        imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
+        messages.insert(dcmInfo);
     }
-    ss << sopInstUid.c_str() << ".dcm";
-    std::string dcmSavePath = ss.str();
-    ss.clear();
-    imebra::CodecFactory::save(payload, dcmSavePath, imebra::codecType_t::dicom);
-    messages.insert(dcmInfo);
 
 }
 
@@ -326,7 +380,7 @@ void RuntimeConfig::setupRabbitDispatcher() {
 
             for (const auto &modality: ct.values) {
 
-                std::string mgx(modality.c_str());
+                std::string mgx(modality);
                 transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
                 mapModality[mgx] = ct.key;
             }
@@ -342,7 +396,7 @@ void RuntimeConfig::setupRabbitDispatcher() {
 
             for (const auto &body: bodypart.values) {
 
-                std::string mgx(body.c_str());
+                std::string mgx(body);
                 transform(mgx.begin(), mgx.end(), mgx.begin(), ::toupper);
 
                 // std::string tx = std::toupper(body, std::locale("zh_CN.utf8"));
@@ -428,7 +482,7 @@ void RuntimeConfig::publishCStoreMessage(std::set<DcmInfo> &dicomMessages) {
     }
 
     spdlog::debug("onMessageCallback with EmptyArguments begin：{}", dicomMessages.size());
-    uv_loop_t *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
+    auto *cLoop = static_cast<uv_loop_t *>(malloc(sizeof(uv_loop_t)));
     if (cLoop == nullptr) {
         spdlog::error("onMessageCallback 申请内存失败");
         return;
@@ -445,7 +499,7 @@ void RuntimeConfig::publishCStoreMessage(std::set<DcmInfo> &dicomMessages) {
         channel.startTransaction();
         for (DcmInfo cmsg: dicomMessages) {
             std::shared_ptr<AMQP::Envelope> envelope = cmsg.createMessage(mapModality, mapBodyPart);
-            channel.publish(messagePubExchange, messagePubRoutingKey, *envelope.get());
+            channel.publish(messagePubExchange, messagePubRoutingKey, *envelope);
         }
         channel.commitTransaction().onSuccess([&dicomMessages]() {
             spdlog::info("Commit Messages：{}  with  Success", dicomMessages.size());

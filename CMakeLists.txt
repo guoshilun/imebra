@@ -469,7 +469,7 @@ if (NOT IOS)
     )
     add_executable(scpExample ${scpExample_sources})
     message(STATUS "scpExample Dir:${GDCM_LIBRARIES}")
-    target_link_libraries(scpExample imebra ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz)
+    target_link_libraries(scpExample imebra ${GDCM_LIBRARIES} -luv -lpthread -ldl -lamqpcpp -lyaml-cpp -lz -luuid)
 
 endif ()
 

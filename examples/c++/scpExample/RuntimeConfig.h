@@ -15,14 +15,14 @@
 class RuntimeConfig {
 
 public:
-    RuntimeConfig(std::string dcmStore , std::string logDirectory , std::string configFilePath);
+    RuntimeConfig(std::string& dcmStore , std::string& logDirectory , std::string& configFilePath);
 
     virtual  ~RuntimeConfig();
 
     void setupRabbitDispatcher();
 
-    void perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir);
-
+    static void perfermFileStorek(std::set<DcmInfo> &messages, imebra::DataSet &payload, std::string &dcmStoreDir);
+    static void random_uuid(char buf[37]);
     void publishCStoreMessage(std::set<DcmInfo> &dicomMessages);
 
 

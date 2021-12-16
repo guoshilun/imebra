@@ -51,26 +51,24 @@ void outputDatasetTags(const DataSet& dataset, const std::wstring& prefix)
     tagsIds_t tags = dataset.getTags();
 
     // Output all the tags
-    for(tagsIds_t::const_iterator scanTags(tags.begin()), endTags(tags.end());
-        scanTags != endTags;
-        ++scanTags)
+    for(const auto & scanTags : tags)
     {
         try
         {
-            std::wstring tagName = DicomDictionary::getUnicodeTagDescription(*scanTags);
+            std::wstring tagName = DicomDictionary::getUnicodeTagDescription(scanTags);
          //   std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (" << tagName << L")" << std::endl;
 
-            printTagInfo(prefix , (*scanTags).getGroupId()  ,  (*scanTags).getTagId()  , tagName);
+            printTagInfo(prefix , scanTags.getGroupId()  ,  scanTags.getTagId()  , tagName);
         }
         catch(const DictionaryUnknownTagError&)
         {
             std::wstring  un= L" (Unknown tag)";
-            printTagInfo(prefix , (*scanTags).getGroupId()  ,  (*scanTags).getTagId()  ,  un);
+            printTagInfo(prefix , scanTags.getGroupId()  ,  scanTags.getTagId()  ,  un);
 
          //   std::wcout << prefix << L"Tag " << (*scanTags).getGroupId() << L"," << (*scanTags).getTagId() << L" (Unknown tag)" << std::endl;
         }
 
-        Tag tag(dataset.getTag(*scanTags));
+        Tag tag(dataset.getTag(scanTags));
 
         for(size_t itemId(0); ; ++itemId)
         {
@@ -105,12 +103,12 @@ void outputDatasetTags(const DataSet& dataset, const std::wstring& prefix)
     }
 }
 
-#define  MAX_PATH_LEN  1024
+
 static void trave_dir(char* path,std::list<std::string>& result) {
-    DIR *d = NULL;
-    struct dirent *dp = NULL; /* readdir函数的返回值就存放在这个结构体中 */
-    struct stat st;
-    char p[MAX_PATH_LEN] = {0};
+    DIR *d = nullptr;
+    struct dirent *dp = nullptr; /* readdir函数的返回值就存放在这个结构体中 */
+    struct stat st{};
+    char p[1024] = {0};
 
     if(stat(path, &st) < 0 || !S_ISDIR(st.st_mode)) {
         return;
@@ -121,7 +119,7 @@ static void trave_dir(char* path,std::list<std::string>& result) {
         return;
     }
 
-    while((dp = readdir(d)) != NULL) {
+    while((dp = readdir(d)) != nullptr) {
         /* 把当前目录.，上一级目录..及隐藏文件都去掉，避免死循环遍历目录 */
         if((!strncmp(dp->d_name, ".", 1)) || (!strncmp(dp->d_name, "..", 2)))
             continue;
@@ -138,8 +136,6 @@ static void trave_dir(char* path,std::list<std::string>& result) {
         }
     }
     closedir(d);
-
-    return;
 }
 
 int main(int argc, char* argv[])
@@ -173,7 +169,7 @@ int main(int argc, char* argv[])
 
 
 
-        for(const  auto cx :allFiles){
+        for(const  auto &cx :allFiles){
             std::wcout <<  cx.c_str() <<std::endl;
             DataSet loadedDataSet = CodecFactory::load(cx, 2048);
             outputDatasetTags(loadedDataSet, L"");

@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
             // Build the arguments array
             std::unique_ptr<const char*> ffArgv(new const char*[options.size() + 1]);
             size_t insertPosition(0);
-            for(tOptionsList::iterator scanOptions(options.begin()); scanOptions != options.end(); ++scanOptions, ++insertPosition)
+            for(auto scanOptions(options.begin()); scanOptions != options.end(); ++scanOptions, ++insertPosition)
             {
                 ffArgv.get()[insertPosition] = (*scanOptions).c_str();
             }

@@ -38,7 +38,6 @@ bool endsWith(const std::string &mainStr, const std::string &toMatch);
 //////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[]) {
 
-
     std::ios::sync_with_stdio(false);
     std::locale lc("zh_CN.UTF-8");
     std::locale::global(lc);

@@ -36,20 +36,21 @@ void CopyGroups(const DataSet& source, MutableDataSet& destination)
 {
     tagsIds_t tags(source.getTags());
 
-    for(tagsIds_t::const_iterator scanTags(tags.begin()), endTags(tags.end()); scanTags != endTags; ++scanTags)
+//    for(tagsIds_t::const_iterator scanTags(tags.begin()), endTags(tags.end()); scanTags != endTags; ++scanTags)
+    for(const auto &tag : tags )
     {
-        if((*scanTags).getGroupId() == 0x7fe0)
+        if(tag.getGroupId() == 0x7fe0)
         {
             continue;
         }
         try
         {
-            destination.getTag(*scanTags);
+            destination.getTag(tag);
         }
         catch(const MissingDataElementError&)
         {
-            Tag sourceTag = source.getTag(*scanTags);
-            MutableTag destTag = destination.getTagCreate(*scanTags, sourceTag.getDataType());
+            Tag sourceTag = source.getTag(tag);
+            MutableTag destTag = destination.getTagCreate(tag, sourceTag.getDataType());
 
             try
             {
@@ -58,7 +59,7 @@ void CopyGroups(const DataSet& source, MutableDataSet& destination)
                     try
                     {
                         DataSet sequence = sourceTag.getSequenceItem(buffer);
-                        MutableDataSet destSequence = destination.appendSequenceItem(*scanTags);
+                        MutableDataSet destSequence = destination.appendSequenceItem(tag);
                         CopyGroups(sequence, destSequence);
                     }
                     catch(const MissingDataElementError&)
@@ -105,7 +106,9 @@ int main(int argc, char* argv[])
                 "1.2.840.10008.1.2.5", // RLE compression
                 "1.2.840.10008.1.2.4.50", // Jpeg baseline (8 bits lossy)
                 "1.2.840.10008.1.2.4.51", // Jpeg extended (12 bits lossy)
-                "1.2.840.10008.1.2.4.57" // Jpeg lossless NH
+                "1.2.840.10008.1.2.4.57" ,// Jpeg lossless NH
+                "1.2.840.10008.1.2.4.90" // Jpeg2000
+
             };
 
             const std::uint32_t maxHighBitValues[]=
@@ -115,7 +118,8 @@ int main(int argc, char* argv[])
                 31,
                 7,
                 11,
-                15
+                15,
+                31,
             };
 
             std::istringstream convertTransferSyntax(argv[3]);
@@ -137,6 +141,7 @@ int main(int argc, char* argv[])
                     std::cout << "                          3 = Jpeg baseline (8 bits lossy)" << std::endl;
                     std::cout << "                          4 = Jpeg extended (12 bits lossy)" << std::endl;
                     std::cout << "                          5 = Jpeg lossless NH" << std::endl;
+                    std::cout << "                          6 = Jpeg2000" << std::endl;
                     return 1;
         }
 
